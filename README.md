@@ -49,3 +49,17 @@ Thêm `&debug=1` vào link overlay (ví dụ `/overlay?sound=1&debug=1`): trang 
 
 Phật tử đứng khắp nền điện, mỗi người một chỗ cố định (khoảng 400 chỗ). "Đám đông nền" ở trang admin (mặc định 150, biến `AMBIENT_CROWD` trong `.env`) là những Phật tử vô danh đứng sẵn để điện luôn đông; người xem thật đứng xen vào, kéo về 0 nếu chỉ muốn thấy người xem thật.
 Khi có quà, nhân vật chạy thẳng lên sát bàn thờ, máy quay lấy khung bàn thờ và tượng Phật (`ALTAR_VIEW` trong `public/overlay.js`) còn đám đông mờ đi để chỉ thấy người đó. Mỗi lần chỉ một người; quà đến dồn thì xếp hàng, quá 3 người chờ thì người thừa chỉ cúi lạy tại chỗ. Tên chỉ hiện với người đang vào phòng, chat hoặc tặng quà.
+
+## ZeroTTS (giọng đọc chạy trên máy)
+
+`TTS_PROVIDER=zerotts` dùng ZeroTTS: giọng tiếng Việt chạy ngay trên máy, không cần mạng. Một tiến trình Python (`tts_worker.py`) giữ model trong bộ nhớ; mỗi câu mất khoảng 2 giây, model nạp trong khoảng 3 giây lúc server khởi động.
+Cài một lần:
+
+```
+uv venv --python 3.13 tts-env
+uv pip install --python tts-env/bin/python zerotts
+# model (1 GB) phải là thư mục file thật, KHÔNG phải cache Hugging Face toàn symlink (onnxruntime từ chối symlink):
+uv run --python tts-env/bin/python python -c "from huggingface_hub import snapshot_download as d; d('zeroweight-ai/ZeroTTS', local_dir='models/zerotts')"
+```
+
+Đổi giọng bằng `ZEROTTS_VOICE` (maichi, baotrang, giahuy, hamy, huuduc, kimoanh, quangminh, tiendat). Worker hỏng hoặc quá 20 giây thì câu đó tự đọc bằng giọng Linh.

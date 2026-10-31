@@ -19,4 +19,5 @@ const { buildParts, audioFor, speakableName, PROVIDER } = require('../speech');
     fs.writeFileSync(out, audio);
     console.log(`clip ${i}: ${audio.length} bytes in ${Date.now() - t0} ms -> ${out}`);
   }
+  process.exit(0); // a resident voice worker would otherwise keep the script alive
 })().catch((e) => { console.error('FAIL:', e.message); process.exit(1); });

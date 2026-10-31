@@ -4,3 +4,6 @@ node_modules/
 # music is licensed content: keep it out of git
 public/assets/music/*
 !public/assets/music/.gitkeep
+# ZeroTTS: its Python environment and the 1 GB model
+tts-env/
+models/

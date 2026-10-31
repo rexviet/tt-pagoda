@@ -1,6 +1,9 @@
 // Spoken line for each feature: "<name> đã dâng hương, chúc bạn <random blessing>".
 //
 // Voice providers (TTS_PROVIDER):
+//   zerotts    ZeroTTS (Vietnamese, runs on this machine, no network): a Python worker (tts_worker.py) keeps the model loaded.
+//              ZEROTTS_VOICE (default maichi), ZEROTTS_PYTHON (default ./tts-env/bin/python), ZEROTTS_MODEL_PATH
+//              (default ./models/zerotts, which must be a directory of real files, not a Hugging Face cache of symlinks).
 //   omnivoice  VoiceStudio server with a cloned voice (the GPU box on the LAN, ~1 s per line).
 //              OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS, OMNIVOICE_SPEED, OMNIVOICE_PIN or OMNIVOICE_API_KEY.
 //              The local VoiceStudio on the Mac (device mps) produced noise instead of speech, so point this at the GPU box.
@@ -11,15 +14,21 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
+const readline = require('readline');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'say';
+const PROVIDER = ['say', 'edge', 'omnivoice', 'zerotts'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'say';
 const OMNI_URL = (process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900').replace(/\/$/, '');
 const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'default';
 const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 16; // fewer steps = faster, rougher
 const OMNI_SPEED = Number(process.env.OMNIVOICE_SPEED) || 1.15; // 1.0 = normal; above ~1.3 words start to blur
 const OMNI_TIMEOUT_MS = 10000; // a live line that takes longer is not worth waiting for
+const ZERO_VOICE = process.env.ZEROTTS_VOICE || 'maichi';
+const ZERO_PYTHON = process.env.ZEROTTS_PYTHON || path.join(__dirname, 'tts-env', 'bin', 'python');
+const ZERO_MODEL = process.env.ZEROTTS_MODEL_PATH || path.join(__dirname, 'models', 'zerotts');
+const ZERO_LOAD_TIMEOUT_MS = 90000; // loading the model takes a few seconds, longer on a cold disk
+const ZERO_REQUEST_TIMEOUT_MS = 20000;
 const EDGE_VOICE = process.env.TTS_VOICE || 'vi-VN-HoaiMyNeural';
 const CACHE_DIR = path.join(__dirname, '.cache', 'tts');
 const MAX_NAME_LENGTH = 20;
@@ -146,13 +155,81 @@ async function synthSay(text) {
   }
 }
 
-const PRIMARY = { omnivoice: synthOmni, edge: synthEdge, say: synthSay }[PROVIDER];
+// ---- ZeroTTS: a resident Python worker -------------------------------------------------
+// The model is loaded once and stays in memory; each line is a JSON request on the worker's stdin and a JSON answer on
+// its stdout. The worker starts on first use (or at server start, see checkVoiceServer) and is restarted if it dies.
+let zero = null;
+
+function startZero() {
+  if (zero) return zero;
+  const state = { pending: new Map(), nextId: 1, info: null };
+  const proc = spawn(ZERO_PYTHON, [path.join(__dirname, 'tts_worker.py')], {
+    env: { ...process.env, ZEROTTS_MODEL_PATH: ZERO_MODEL, ZEROTTS_VOICE: ZERO_VOICE, ZEROTTS_OUT_DIR: os.tmpdir() },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  state.proc = proc;
+  state.ready = new Promise((resolve, reject) => { state.resolveReady = resolve; state.rejectReady = reject; });
+  state.ready.catch(() => {}); // a failed start is reported to whoever awaits it
+
+  const fail = (err) => {
+    state.rejectReady(err);
+    for (const { reject, timer } of state.pending.values()) { clearTimeout(timer); reject(err); }
+    state.pending.clear();
+    if (zero === state) zero = null; // the next request starts a fresh worker
+  };
+
+  readline.createInterface({ input: proc.stdout }).on('line', (line) => {
+    let msg;
+    try { msg = JSON.parse(line); } catch (_) { return; } // not ours (a library printing something)
+    if (msg.type === 'ready') { state.info = msg; state.resolveReady(msg); return; }
+    if (msg.type === 'error' && msg.fatal) { fail(new Error(msg.error)); return; }
+    const waiting = msg.type === 'result' ? state.pending.get(msg.id) : null;
+    if (!waiting) return;
+    state.pending.delete(msg.id);
+    clearTimeout(waiting.timer);
+    if (msg.ok) waiting.resolve(msg); else waiting.reject(new Error(msg.error || 'zerotts failed'));
+  });
+  readline.createInterface({ input: proc.stderr }).on('line', (line) => { if (line.trim()) console.error(`[zerotts] ${line}`); });
+  proc.on('error', (err) => fail(new Error(`cannot start ${ZERO_PYTHON}: ${err.message}`)));
+  proc.on('exit', (code) => fail(new Error(`zerotts worker exited with code ${code}`)));
+  zero = state;
+  return state;
+}
+
+function withTimeout(promise, ms, what) {
+  let timer;
+  const limit = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${what} timed out after ${ms / 1000}s`)), ms); });
+  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+}
+
+async function synthZero(text) {
+  const worker = startZero();
+  await withTimeout(worker.ready, ZERO_LOAD_TIMEOUT_MS, 'loading ZeroTTS');
+  const id = worker.nextId++;
+  const answer = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { worker.pending.delete(id); reject(new Error(`ZeroTTS timed out after ${ZERO_REQUEST_TIMEOUT_MS / 1000}s`)); }, ZERO_REQUEST_TIMEOUT_MS);
+    worker.pending.set(id, { resolve, reject, timer });
+  });
+  worker.proc.stdin.write(`${JSON.stringify({ id, text, voice: ZERO_VOICE })}\n`);
+  const { file } = await answer;
+  const mp3 = `${file}.mp3`;
+  try {
+    await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', file, '-codec:a', 'libmp3lame', '-b:a', '96k', mp3]);
+    return fs.readFileSync(mp3);
+  } finally {
+    for (const f of [file, mp3]) fs.rm(f, () => {});
+  }
+}
+
+process.on('exit', () => { if (zero) zero.proc.kill(); });
+
+const PRIMARY = { omnivoice: synthOmni, edge: synthEdge, say: synthSay, zerotts: synthZero }[PROVIDER];
 
 // ---- cache -----------------------------------------------------------------
 
 // The key includes the voice settings, so switching voice never replays an old voice's lines.
 const cacheKey = (text) => crypto.createHash('sha1')
-  .update(`${PROVIDER}|${PROVIDER === 'omnivoice' ? `${OMNI_VOICE}|${OMNI_STEPS}|${OMNI_SPEED}` : EDGE_VOICE}|${text}`)
+  .update(`${PROVIDER}|${{ omnivoice: `${OMNI_VOICE}|${OMNI_STEPS}|${OMNI_SPEED}`, zerotts: ZERO_VOICE }[PROVIDER] || EDGE_VOICE}|${text}`)
   .digest('hex').slice(0, 20);
 
 const inflight = new Map();
@@ -181,6 +258,15 @@ function audioFor(text) {
 // Logs at startup whether the configured voice server answers and has the voice, so a wrong PIN or
 // address shows up before the first gift instead of as a silent fallback to the macOS voice.
 async function checkVoiceServer() {
+  if (PROVIDER === 'zerotts') { // start the worker now, so the first gift does not wait for the model to load
+    try {
+      const info = await withTimeout(startZero().ready, ZERO_LOAD_TIMEOUT_MS, 'loading ZeroTTS');
+      console.log(`[tts] voice: zerotts "${info.voice}" ready in ${info.loadSec}s (${info.voices.length} voices, ${info.sampleRate} Hz)`);
+    } catch (err) {
+      console.error(`[tts] ZeroTTS is not usable (${err.message}); lines will fall back to the macOS voice`);
+    }
+    return;
+  }
   if (PROVIDER !== 'omnivoice') return console.log(`[tts] voice: ${PROVIDER}`);
   try {
     const res = await fetch(`${OMNI_URL}/v1/audio/voices`, { headers: omniHeaders(), signal: AbortSignal.timeout(4000) });
