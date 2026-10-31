@@ -292,10 +292,11 @@
     }
   }
 
-  // Waiting places: fixed rows across the hall, filled from the altar end outwards, left and right in turn.
+  // Waiting places: fixed rows across the hall, filled from the row nearest the mats outwards, left and right in turn.
   // A disciple keeps its place until it is retired; after bringing a gift it walks back to the same place.
-  const SLOT_ROW_START = 1290, SLOT_ROW_STEP = 60, SLOT_ROWS = 10;
-  const SLOT_COLUMNS = [-0.4, 0.4, -0.65, 0.65, -0.9, 0.9]; // as a share of the carpet's half-width at that row
+  // Every waiting place is nearer the camera than every mat, so a disciple always walks UP to pray and back down.
+  const SLOT_ROW_START = Math.max(...Object.values(STATIONS).map((st) => st.y)) + 75, SLOT_ROW_STEP = 60, SLOT_ROWS = 7;
+  const SLOT_COLUMNS = [-0.3, 0.3, -0.5, 0.5, -0.7, 0.7, -0.9, 0.9]; // as a share of the carpet's half-width at that row
   const slots = [];
   for (let r = 0; r < SLOT_ROWS; r++) {
     const y = SLOT_ROW_START + r * SLOT_ROW_STEP;
