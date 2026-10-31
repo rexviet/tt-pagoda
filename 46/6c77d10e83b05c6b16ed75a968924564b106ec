@@ -1,0 +1,21 @@
+.env.example
+  s_56a6e42b43e569::t_ec76a7f5ff84fd 8-9
+speech.js
+  s_56a6e42b43e569::t_36d0421e64db85 5,21,92,155,194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "466c77d10e83b05c6b16ed75a968924564b106ec",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
