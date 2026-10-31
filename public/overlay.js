@@ -125,15 +125,15 @@
 
   function drawStations() {
     for (const s of Object.values(STATIONS)) {
-      const mat = new PIXI.Graphics().beginFill(s === STATIONS.tambao ? 0xb32020 : 0x777777, 0.9).drawRoundedRect(-60, 20, 120, 34, 8).endFill();
+      const mat = new PIXI.Graphics().beginFill(s === STATIONS.tambao ? 0xb32020 : 0x777777, 0.9).drawRoundedRect(-62, -16, 124, 30, 8).endFill();
       mat.position.set(s.x, s.y);
       const box = new PIXI.Graphics();
-      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 60, 170, 70, 8).endFill();
+      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 40, 170, 70, 8).endFill();
       box.position.set(s.x, s.y);
       const a = new PIXI.Text(s.label, { fontFamily: 'Arial', fontSize: 24, fontWeight: '700', fill: 0xffe9a8 });
       const b = new PIXI.Text(s.sub, { fontFamily: 'Arial', fontSize: 18, fill: 0xf4cf7a });
       a.anchor.set(0.5); b.anchor.set(0.5);
-      a.position.set(s.x, s.y + 85); b.position.set(s.x, s.y + 111);
+      a.position.set(s.x, s.y + 65); b.position.set(s.x, s.y + 91);
       layers.floor.addChild(mat, box, a, b);
     }
   }
@@ -230,7 +230,7 @@
       c, body, label, name, userId, busy: false, bornAt: performance.now(), phase: Math.random() * 6, baseY: y,
       outfit, jitter: 0.92 + Math.random() * 0.16,
     };
-    setPose(fig, 'kneel');
+    setPose(fig, 'kneelup');
     c.scale.set(perspective(y) * fig.jitter);
     figures.push(fig);
     layers.figures.addChild(c);
@@ -273,9 +273,9 @@
 
   function carpetSpot() {
     const left = Math.random() < 0.5;
-    const y = 1300 + Math.random() * 480;
+    const y = 1250 + Math.random() * 250;
     const half = carpetHalfAt(y);
-    const x = CENTER_X + (left ? -1 : 1) * half * (0.35 + Math.random() * 0.5);
+    const x = CENTER_X + (left ? -1 : 1) * half * (0.3 + Math.random() * 0.9);
     return { x, y };
   }
 
@@ -291,7 +291,7 @@
     setPose(fig, dy < 0 ? 'walkup' : 'walk');
     await tween(fig.c, { x, y }, ms, ease.inOut);
     fig.baseY = y;
-    setPose(fig, 'kneel');
+    setPose(fig, 'kneelup');
   }
 
   // deep = full prostration; otherwise upright kneeling with palms together
@@ -409,19 +409,19 @@
     try {
       if (tier === 'huong') {
         const s = STATIONS.huong;
-        await walkTo(fig, s.x + (Math.random() - 0.5) * 60, s.y + 10);
+        await walkTo(fig, s.x + (Math.random() - 0.5) * 60, s.y);
         await kneel(fig);
         for (let i = 0; i < 6; i++) { smoke(fig.c.x, fig.c.y - 60); await wait(350); }
         await bow(fig, 3);
       } else if (tier === 'buc') {
         const s = STATIONS.buc;
-        await walkTo(fig, s.x, s.y + 10);
+        await walkTo(fig, s.x, s.y);
         await kneel(fig, true);
         sparks(fig.c.x, fig.c.y - 40, 16);
         await wait(2500);
       } else if (tier === 'tambao') {
         const s = STATIONS.tambao;
-        await walkTo(fig, s.x, s.y + 10);
+        await walkTo(fig, s.x, s.y);
         await kneel(fig, true);
         sparks(fig.c.x, fig.c.y - 40, 40);
         flashBuddha();
@@ -457,7 +457,7 @@
       await kneel(f);
       await bow(f, 2);
       await wait(1500);
-      setPose(f, 'kneel');
+      setPose(f, 'kneelup');
       f.busy = false;
     }));
   }
@@ -475,7 +475,7 @@
     pool.forEach((f, i) => setTimeout(() => showBubble(f, NAMMO[Math.floor(Math.random() * NAMMO.length)]), i * 250));
     for (const f of pool) { f.busy = true; kneel(f, true); }
     await wait(4500);
-    for (const f of pool) { setPose(f, 'kneel'); f.busy = false; }
+    for (const f of pool) { setPose(f, 'kneelup'); f.busy = false; }
   }
 
   function resetScene() {
