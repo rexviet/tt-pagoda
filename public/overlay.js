@@ -5,12 +5,6 @@
   const CENTER_X = W / 2;
   const MAX_FIGURES = 600; // a safety cap for the renderer, above the number of standing places; beyond it the oldest idle disciple is retired
 
-  // Legend plates at the foot of the screen (labels only, nobody kneels here).
-  const LEGEND = [
-    { x: 340, y: 1810, label: '1 xu', sub: 'dâng hương' },
-    { x: 540, y: 1810, label: '5 xu', sub: 'lên bục' },
-    { x: 740, y: 1810, label: '10+ xu', sub: 'tặng công đức' },
-  ];
 
 
   const app = new PIXI.Application({ width: W, height: H, backgroundAlpha: 0, antialias: true });
@@ -124,7 +118,6 @@
 
   function drawScene() {
     loadBackground().then((ok) => { if (!ok) drawVectorScene(); addGlow(); });
-    drawLegend();
   }
 
   async function loadBackground() {
@@ -178,18 +171,6 @@
     layers.bg.addChild(buddha);
   }
 
-  function drawLegend() {
-    for (const l of LEGEND) {
-      const box = new PIXI.Graphics();
-      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 0, 170, 70, 8).endFill();
-      box.position.set(l.x, l.y);
-      const a = new PIXI.Text(l.label, { fontFamily: 'Arial', fontSize: 24, fontWeight: '700', fill: 0xffe9a8 });
-      const b = new PIXI.Text(l.sub, { fontFamily: 'Arial', fontSize: 18, fill: 0xf4cf7a });
-      a.anchor.set(0.5); b.anchor.set(0.5);
-      a.position.set(l.x, l.y + 25); b.position.set(l.x, l.y + 51);
-      layers.floor.addChild(box, a, b);
-    }
-  }
 
   // ---- particles -----------------------------------------------------------
   const particles = [];
