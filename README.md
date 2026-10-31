@@ -72,3 +72,10 @@ ZeroTTS không tự tạo giọng từ file thu: bạn tải đoạn thu mẫu l
 
 Một câu lời chúc mất khoảng 2 giây để tạo (nhanh hơn khi máy rảnh) và 4 giây để đọc, nên không thể đọc hết mọi quà và chia sẻ khi phòng đông. Tool dùng một "xô suất": tối đa 3 câu liên tiếp, sau đó mỗi `SPEECH_REFILL_MS` (mặc định 4000 ms) được thêm một câu. Chia sẻ chỉ được đọc khi còn ít nhất 2 suất, nên quà luôn được ưu tiên. Sự kiện không có giọng vẫn hiện hình trên overlay, chỉ là im lặng.
 Câu chờ quá 8 giây thì bị bỏ (không đọc muộn bằng giọng khác), worker bỏ qua câu đã quá hạn thay vì xử lý, và tối đa 4 câu chờ worker cùng lúc. Tắt server thì worker cũng tắt.
+
+## Bộ nhân vật
+
+Có hai bộ trong `public/assets/disciples/`, đặt tên `<tư thế>-<bộ>.png`:
+- `devotee` (mặc định): lấy từ repo `tiktok-live-temple-rpc`, người thật nhìn từ sau lưng. Bộ này có thêm khung bước chân thứ hai (`walkup2`), khung quỳ xuống (`settle`) và ba bước cúi lạy (`bowa`, `bowb`, `bowc`), nên bước đi đổi chân và cúi lạy đi từng bước xuống sàn. Vì chỉ có góc nhìn sau lưng, nhân vật về chỗ bằng cách mờ đi ở bàn thờ rồi hiện lại ở chỗ đứng, thay vì đi lùi xuống.
+- `brown`: nhân vật chibi.
+Đổi bộ bằng đuôi địa chỉ overlay: `/overlay?outfits=brown` (không cần sửa file). Thêm bộ mới: bỏ ảnh `kneelup-<tên>.png` và `kneel-<tên>.png` (bắt buộc) cùng các tư thế khác nếu có, rồi dùng `?outfits=<tên>`.

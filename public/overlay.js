@@ -217,11 +217,18 @@
   // Sprites live in public/assets/disciples/ as <pose>-<outfit>.png (poses: kneel, stand, walk, bow).
   // A disciple only ever uses sprites of its own outfit. An outfit needs kneel-<outfit>.png; any missing
   // pose falls back to the kneel sprite with a code-driven motion (bow = tilt and squash, walk = hop).
-  const OUTFITS = ['brown'];
+  // Which cast stands in the hall: 'devotee' (realistic, from the rpc project, back view only) or 'brown' (chibi).
+  // ?outfits=brown on the overlay address switches the cast without touching any file.
+  const OUTFITS = (new URLSearchParams(location.search).get('outfits') || 'devotee').split(',').map((o) => o.trim()).filter(Boolean);
   // front poses face the camera; *up poses are seen from behind, facing the Buddha
-  const POSES = ['kneel', 'stand', 'walk', 'bow', 'kneelup', 'walkup', 'bowup'];
+  // Extra frames some casts have: walkup2 (the other foot), settle (sinking onto the knees), bowa/bowb/bowc (the steps of
+  // a bow down to the floor). A cast without them just goes straight between kneelup and bowup.
+  const POSES = ['kneel', 'stand', 'walk', 'bow', 'kneelup', 'walkup', 'bowup', 'walkup2', 'settle', 'bowa', 'bowb', 'bowc'];
   const POSE_HEIGHT = { kneel: 120, stand: 140, walk: 140, bow: 105 };
-  const baseOf = (pose) => pose.replace(/up$/, '');
+  const baseOf = (pose) => pose.replace(/up2?$/, '');
+  // A cast whose frames all share one scale (its pose images are cut from one drawing size) is drawn at this many
+  // design pixels per image pixel, instead of the per-pose heights above.
+  const PIXEL_SCALE = { devotee: 0.66 };
   const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
@@ -246,7 +253,7 @@
     // Missing pose: reuse the kneel sprite that faces the same way (back view for *up poses).
     const real = !!(set[pose] || set[base]);
     const tex = set[pose] || set[base] || (pose.endsWith('up') && set.kneelup) || set.kneel;
-    const h = POSE_HEIGHT[real ? base : 'kneel'];
+    const h = PIXEL_SCALE[fig.outfit] ? tex.height * PIXEL_SCALE[fig.outfit] : POSE_HEIGHT[real ? base : 'kneel'];
     const sx = h / tex.height;
     const squash = !real && base === 'bow';
     fig.pose = pose;
@@ -318,6 +325,8 @@
       f.c.zIndex = f.c.y;
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
+        const set = TEX[f.outfit];
+        if (f.pose === 'walkup' && set.walkup2) f.body.texture = Math.floor(now / 190 + f.phase) % 2 ? set.walkup2 : set.walkup; // alternate feet
         tilt = Math.sin(now / 130) * 0.07;
         if (f.fallback) hop = -Math.abs(Math.sin(now / 130)) * 12;
       } else if (!f.busy) {
@@ -388,15 +397,39 @@
     setPose(fig, 'kneelup');
   }
 
+  // A cast with the bow frames goes down to the floor in steps (hands to the forehead, half bow, hands on the floor, flat)
+  // and comes back up the same way; a cast without them jumps between kneeling and prostrate.
+  const PROSTRATE_DOWN = ['bowa', 'bowb', 'bowc', 'bowup'];
+  const PROSTRATE_UP = ['bowc', 'bowb', 'bowa', 'kneelup'];
+  const hasBowFrames = (fig) => !!TEX[fig.outfit].bowa;
+  async function playPoses(fig, poses, gap = 130) {
+    for (const pose of poses) { setPose(fig, pose); await wait(gap); }
+  }
+
   // deep = full prostration; otherwise upright kneeling with palms together
-  async function kneel(fig, deep = false) { setPose(fig, (deep ? 'bow' : 'kneel') + 'up'); }
+  async function kneel(fig, deep = false) {
+    fig.body.rotation = 0;
+    if (deep) {
+      if (hasBowFrames(fig)) await playPoses(fig, PROSTRATE_DOWN); else setPose(fig, 'bowup');
+      return;
+    }
+    if (TEX[fig.outfit].settle) { setPose(fig, 'settle'); await wait(160); }
+    setPose(fig, 'kneelup');
+  }
   async function stand(fig) { setPose(fig, 'stand'); await wait(350); }
   async function bow(fig, times = 3) {
     for (let i = 0; i < times; i++) {
-      setPose(fig, 'bowup');
-      await wait(900);
-      setPose(fig, 'kneelup');
-      await wait(600);
+      if (hasBowFrames(fig)) {
+        await playPoses(fig, PROSTRATE_DOWN);
+        await wait(700);
+        await playPoses(fig, PROSTRATE_UP);
+        await wait(450);
+      } else {
+        setPose(fig, 'bowup');
+        await wait(900);
+        setPose(fig, 'kneelup');
+        await wait(600);
+      }
     }
   }
 
@@ -571,14 +604,26 @@
         await wait(4000);
       }
     } finally {
+      if (fig.pose === 'bowup' && hasBowFrames(fig)) await playPoses(fig, PROSTRATE_UP, 110); // get up before the camera leaves
       if (shot) endSpotlight(shot); // the camera pulls back and the crowd fades in
       tween(fig, { heroScale: 1 }, 400);
       layers.figures.addChild(fig.c);
       fig.busy = false;
-      const home = claimSlot(fig);
-      await walkTo(fig, home.x, home.y, RUN_SPEED);
+      await returnHome(fig);
       showLabel(fig, 3000);
     }
+  }
+
+  // Back to the standing place. A cast with a front-facing walk walks there; a back-view-only cast would look like it
+  // walks backwards, so it fades out at the altar and fades in at its place instead.
+  async function returnHome(fig) {
+    const home = claimSlot(fig);
+    if (TEX[fig.outfit].walk) return walkTo(fig, home.x, home.y, RUN_SPEED);
+    await tween(fig.c, { alpha: 0 }, 250);
+    fig.c.position.set(home.x, home.y);
+    setPose(fig, 'kneelup');
+    await tween(fig.c, { alpha: 1 }, 250);
+    return undefined;
   }
 
   function flashBuddha() {
