@@ -2,7 +2,7 @@
 //
 // Voice providers (TTS_PROVIDER):
 //   omnivoice  VoiceStudio server with a cloned voice (the GPU box on the LAN, ~1 s per line).
-//              OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS, OMNIVOICE_PIN or OMNIVOICE_API_KEY.
+//              OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS, OMNIVOICE_SPEED, OMNIVOICE_PIN or OMNIVOICE_API_KEY.
 //              The local VoiceStudio on the Mac (device mps) produced noise instead of speech, so point this at the GPU box.
 //   say        macOS "Linh" voice, offline and instant (default when nothing is configured)
 //   edge       Microsoft Edge neural voice (needs network, was seen dropping mid-sentence)
@@ -18,6 +18,7 @@ const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER)
 const OMNI_URL = (process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900').replace(/\/$/, '');
 const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'default';
 const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 16; // fewer steps = faster, rougher
+const OMNI_SPEED = Number(process.env.OMNIVOICE_SPEED) || 1.15; // 1.0 = normal; above ~1.3 words start to blur
 const OMNI_TIMEOUT_MS = 10000; // a live line that takes longer is not worth waiting for
 const EDGE_VOICE = process.env.TTS_VOICE || 'vi-VN-HoaiMyNeural';
 const CACHE_DIR = path.join(__dirname, '.cache', 'tts');
@@ -88,7 +89,7 @@ async function requestOmni(text) {
       method: 'POST',
       headers: omniHeaders(),
       body: JSON.stringify({
-        input: text, voice: OMNI_VOICE, language: 'vi', response_format: 'mp3', num_step: OMNI_STEPS,
+        input: text, voice: OMNI_VOICE, language: 'vi', response_format: 'mp3', num_step: OMNI_STEPS, speed: OMNI_SPEED,
       }),
       signal: AbortSignal.timeout(OMNI_TIMEOUT_MS),
     });
@@ -151,7 +152,7 @@ const PRIMARY = { omnivoice: synthOmni, edge: synthEdge, say: synthSay }[PROVIDE
 
 // The key includes the voice settings, so switching voice never replays an old voice's lines.
 const cacheKey = (text) => crypto.createHash('sha1')
-  .update(`${PROVIDER}|${PROVIDER === 'omnivoice' ? `${OMNI_VOICE}|${OMNI_STEPS}` : EDGE_VOICE}|${text}`)
+  .update(`${PROVIDER}|${PROVIDER === 'omnivoice' ? `${OMNI_VOICE}|${OMNI_STEPS}|${OMNI_SPEED}` : EDGE_VOICE}|${text}`)
   .digest('hex').slice(0, 20);
 
 const inflight = new Map();
@@ -190,7 +191,7 @@ async function checkVoiceServer() {
     if (!found && OMNI_VOICE !== 'default') {
       console.error(`[tts] ${OMNI_URL} has no voice "${OMNI_VOICE}"; available: ${voices.map((v) => v.name).join(', ')}`);
     } else {
-      console.log(`[tts] voice: omnivoice "${OMNI_VOICE}" at ${OMNI_URL} (${OMNI_STEPS} steps)`);
+      console.log(`[tts] voice: omnivoice "${OMNI_VOICE}" at ${OMNI_URL} (${OMNI_STEPS} steps, speed ${OMNI_SPEED})`);
     }
   } catch (err) {
     console.error(`[tts] voice server ${OMNI_URL} is not usable (${err.message}); lines will fall back to the macOS voice`);
