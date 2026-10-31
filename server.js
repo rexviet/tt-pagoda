@@ -12,6 +12,7 @@ const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
 const { buildParts, audioFor, checkVoiceServer } = require('./speech');
 
 const PORT = Number(process.env.PORT) || 3000;
+const STREAK_IDLE_MS = Number(process.env.STREAK_IDLE_MS) || 3000;
 const LEADERBOARD_SIZE = 3;
 
 const app = express();
@@ -101,7 +102,10 @@ function addScore(userId, name, coins) {
 // ---- event pipeline (shared by real TikTok events and admin simulation) ----
 
 function handleGift({ userId, name, coins, giftName, count }) {
-  if (!(coins > 0)) return;
+  if (!(coins > 0)) {
+    console.warn(`[tiktok] gift from ${name} (${giftName}) carries no coin value, so it is ignored`);
+    return;
+  }
   const tier = tierForCoins(coins);
   addScore(userId, name, coins);
   io.emit('overlay', {
@@ -126,18 +130,39 @@ function userOf(data) {
 }
 
 function attachTikTokHandlers(conn) {
+  // Gifts that can be sent in a streak (like a rose) arrive as a run of messages, normally closed by one marked
+  // repeatEnd. That closing message can arrive late or not at all, so a streak is also settled once it has been
+  // quiet for STREAK_IDLE_MS. Units already announced are remembered, so a late end or a streak that carries on
+  // after the pause never counts the same units twice.
+  const streaks = new Map(); // key -> { count, timer }
+  const announced = new Map(); // key -> units of that streak already paid out
+  const settle = (key, gift, total) => {
+    const units = total - (announced.get(key) || 0);
+    if (units <= 0) return;
+    announced.set(key, total);
+    setTimeout(() => { if (announced.get(key) === total) announced.delete(key); }, 60000).unref();
+    handleGift({ ...gift, coins: gift.perUnit * units, count: units });
+  };
+
   conn.on(WebcastEvent.GIFT, (data) => {
-    const streakable = data.giftDetails && data.giftDetails.giftType === 1;
-    // A streakable gift fires repeatedly while the streak runs; count it once, when it ends.
-    if (streakable && !data.repeatEnd) return;
-    const perUnit = Number((data.giftDetails && data.giftDetails.diamondCount) || 0);
+    const details = data.giftDetails || {};
     const count = Math.max(1, Number(data.repeatCount) || 1);
-    handleGift({
-      ...userOf(data),
-      coins: perUnit * count,
-      giftName: (data.giftDetails && data.giftDetails.giftName) || 'Quà',
-      count,
-    });
+    const ended = !!data.repeatEnd;
+    const gift = { ...userOf(data), perUnit: Number(details.diamondCount) || 0, giftName: details.giftName || 'Quà' };
+    console.log(`[tiktok] gift from ${gift.name}: ${gift.giftName} x${count} (${gift.perUnit} coin each, type ${details.giftType}, repeatEnd=${ended})`);
+
+    const key = `${gift.userId}:${data.groupId ?? data.giftId}`;
+    if (details.giftType !== 1) return settle(`${key}:${Date.now()}`, gift, count); // one-off gift: count it now
+
+    const streak = streaks.get(key) || { count: 0 };
+    clearTimeout(streak.timer);
+    streak.count = Math.max(streak.count, count);
+    if (ended) {
+      streaks.delete(key);
+      return settle(key, gift, streak.count);
+    }
+    streak.timer = setTimeout(() => { streaks.delete(key); settle(key, gift, streak.count); }, STREAK_IDLE_MS);
+    streaks.set(key, streak);
   });
 
   // TikTok reports a share either as a "share" event or as a generic "social" one, depending on the display key it

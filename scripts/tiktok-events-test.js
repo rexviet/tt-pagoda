@@ -1,5 +1,6 @@
 // Feeds fake TikTok events through the real handlers and checks what reaches the overlay.
 // No live room, voice server or network needed. Usage: node scripts/tiktok-events-test.js
+process.env.STREAK_IDLE_MS = '400'; // a short pause so the test does not wait seconds for a streak to settle
 process.env.TTS_PROVIDER = 'say'; // set before the server loads, so a local .env cannot point the test at the voice server
 const assert = require('assert');
 const EventEmitter = require('events');
@@ -41,7 +42,41 @@ server.listen(0, async () => {
   out = await fire('chat', { user: user('Nguoi Chat'), comment: 'a di da phat' });
   assert.deepStrictEqual(out.map((e) => e.type), ['chat']);
 
-  console.log('OK: share (both paths), join, subscription ignored, chat');
+  // gifts: a one-off gift counts at once; a streak counts when it ends, or when it has gone quiet
+  const gift = (userName, groupId, repeatCount, repeatEnd, giftType, diamondCount) => ({
+    user: user(userName), giftId: 5655, groupId, repeatCount, repeatEnd, giftDetails: { giftType, diamondCount, giftName: 'Hoa hồng' },
+  });
+  const summary = (events) => events.filter((e) => e.type === 'gift').map((e) => [e.coins, e.tier]);
+  const settleWait = () => wait(700); // longer than STREAK_IDLE_MS, so any pending streak timer has fired
+
+  out = await fire('gift', gift('Mot Lan', 'g0', 1, false, 2, 5));
+  assert.deepStrictEqual(summary(out), [[5, 'buc']], 'a one-off gift counts at once');
+
+  out = await fire('gift', gift('Hoa Hong', 'g1', 1, false, 1, 1));
+  assert.deepStrictEqual(out, [], 'a streak is not counted while it may still grow');
+  await settleWait();
+  assert.deepStrictEqual(summary(received), [[1, 'huong']], 'a quiet streak is settled even if the end message never comes');
+  out = await fire('gift', gift('Hoa Hong', 'g1', 1, true, 1, 1));
+  assert.deepStrictEqual(out, [], 'a late end message does not count the same rose again');
+
+  await fire('gift', gift('Tap Lien', 'g2', 1, false, 1, 1));
+  await fire('gift', gift('Tap Lien', 'g2', 2, false, 1, 1));
+  out = await fire('gift', gift('Tap Lien', 'g2', 3, true, 1, 1));
+  assert.deepStrictEqual(summary(out), [[3, 'huong']], 'an ended streak counts once, in full');
+  received.length = 0;
+  await settleWait();
+  assert.deepStrictEqual(summary(received), [], 'the settled streak does not fire again from its timer');
+
+  await fire('gift', gift('Tiep Tuc', 'g3', 1, false, 1, 1));
+  await settleWait(); // settled with 1 rose
+  await fire('gift', gift('Tiep Tuc', 'g3', 4, false, 1, 1));
+  out = await fire('gift', gift('Tiep Tuc', 'g3', 4, true, 1, 1));
+  assert.deepStrictEqual(summary(out), [[3, 'huong']], 'a streak that carries on after a pause only adds the new roses');
+
+  out = await fire('gift', { user: user('Khong Gia'), giftId: 1, groupId: 'g4', repeatCount: 1, repeatEnd: true, giftDetails: { giftType: 2, giftName: 'La' } });
+  assert.deepStrictEqual(out, [], 'a gift without a coin value is ignored, not crashed on');
+
+  console.log('OK: share (both paths), join, subscription ignored, chat, gift streaks');
   client.close();
   process.exit(0);
 });
