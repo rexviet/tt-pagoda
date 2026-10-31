@@ -63,3 +63,7 @@ uv run --python tts-env/bin/python python -c "from huggingface_hub import snapsh
 ```
 
 Đổi giọng bằng `ZEROTTS_VOICE` (maichi, baotrang, giahuy, hamy, huuduc, kimoanh, quangminh, tiendat). Worker hỏng hoặc quá 20 giây thì câu đó tự đọc bằng giọng Linh.
+
+### Giọng riêng (đã nhân bản)
+
+ZeroTTS không tự tạo giọng từ file thu: bạn tải đoạn thu mẫu lên platform.zeroweight.ai/audio rồi tải về một file zip. Cài một lần bằng `install_voice_zip` của thư viện (giọng nằm trong `~/.zerotts/voices`), sau đó đặt `ZEROTTS_VOICE` bằng **tên hiển thị** hoặc mã của giọng, không phân biệt hoa thường. Ví dụ giọng đã cài là `phat-phap` (mã `sf1hi6y17fPu8tAg8FaJ`). Tên sai thì worker báo trong log và dùng giọng đầu tiên trong danh sách.
