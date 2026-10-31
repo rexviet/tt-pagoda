@@ -46,7 +46,7 @@
   // The shot keeps the Buddha's crown (y 260) and the kneeling disciple (y 1158) inside the part of the screen TikTok
   // leaves free (from about 14% to 84% of the height): the view is 1/1.4 of the frame, centred on this world point.
   const ALTAR_VIEW = { zoom: 1.4, x: 548, y: 731 };
-  const CAMERA_SETTLE_MS = 260; // smaller = snappier moves
+  const CAMERA_SETTLE_MS = 150; // smaller = snappier moves
   const CROWD_FADE_MS = 200;
   const camera = { zoom: 1, x: W / 2, y: H / 2 };
   const spotlights = [];
@@ -375,7 +375,7 @@
 
   async function walkTo(fig, x, y, speed = 260) {
     const dx = x - fig.c.x, dy = y - fig.c.y;
-    const ms = Math.max(400, (Math.hypot(dx, dy) / speed) * 1000);
+    const ms = Math.max(250, (Math.hypot(dx, dy) / speed) * 1000);
     setPose(fig, dy < 0 ? 'walkup' : 'walk');
     await tween(fig.c, { x, y }, ms, ease.inOut);
     fig.baseY = y;
@@ -387,7 +387,7 @@
   const PROSTRATE_DOWN = ['bowa', 'bowb', 'bowc', 'bowup'];
   const PROSTRATE_UP = ['bowc', 'bowb', 'bowa', 'kneelup'];
   const hasBowFrames = (fig) => !!TEX[fig.outfit].bowa;
-  async function playPoses(fig, poses, gap = 130) {
+  async function playPoses(fig, poses, gap = 80) {
     for (const pose of poses) { setPose(fig, pose); await wait(gap); }
   }
 
@@ -398,7 +398,7 @@
       if (hasBowFrames(fig)) await playPoses(fig, PROSTRATE_DOWN); else setPose(fig, 'bowup');
       return;
     }
-    if (TEX[fig.outfit].settle) { setPose(fig, 'settle'); await wait(160); }
+    if (TEX[fig.outfit].settle) { setPose(fig, 'settle'); await wait(100); }
     setPose(fig, 'kneelup');
   }
   async function stand(fig) { setPose(fig, 'stand'); await wait(350); }
@@ -406,9 +406,9 @@
     for (let i = 0; i < times; i++) {
       if (hasBowFrames(fig)) {
         await playPoses(fig, PROSTRATE_DOWN);
-        await wait(700);
+        await wait(350);
         await playPoses(fig, PROSTRATE_UP);
-        await wait(450);
+        await wait(200);
       } else {
         setPose(fig, 'bowup');
         await wait(900);
@@ -594,7 +594,7 @@
   // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
   // be on at a time, so gifts take their turn; if more than a few are waiting the extra ones just bow where they stand.
   const HERO_SCALE = 1.15; // drawn larger in the shot, as if closer to the camera
-  const RUN_SPEED = 520;
+  const RUN_SPEED = 1000; // design pixels per second when running to or from the altar
   // ---- the gift queue ------------------------------------------------------------------------
   // Only one gift can be on stage at a time, so the others wait their turn, under four simple rules:
   //  1. someone who is already waiting is not queued twice: their gifts are added up and the better tier is kept;
@@ -702,7 +702,7 @@
       const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
       if (tier === 'huong') {
         await kneel(fig);
-        for (let i = 0; i < 5; i++) { smoke(fig.c.x, headY()); await wait(350); }
+        for (let i = 0; i < 3; i++) { smoke(fig.c.x, headY()); await wait(250); }
         await bow(fig, 2);
       } else if (tier === 'buc') {
         await kneel(fig, true);
@@ -720,7 +720,7 @@
         await wait(4000);
       }
     } finally {
-      if (fig.pose === 'bowup' && hasBowFrames(fig)) await playPoses(fig, PROSTRATE_UP, 110); // get up before the camera leaves
+      if (fig.pose === 'bowup' && hasBowFrames(fig)) await playPoses(fig, PROSTRATE_UP, 70); // get up before the camera leaves
       if (shot) endSpotlight(shot); // the camera pulls back and the crowd fades in
       tween(fig, { heroScale: 1 }, 400);
       layers.figures.addChild(fig.c);
