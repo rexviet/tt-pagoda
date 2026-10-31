@@ -55,7 +55,11 @@ app.get('/tts/:id.mp3', async (req, res) => {
 
 const scores = new Map(); // uniqueId -> { name, score }
 let voiceEnabled = true;
+const DEFAULT_AMBIENT_CROWD = 150;
+const MAX_AMBIENT_CROWD = 350;
 const DEFAULT_MUSIC_VOLUME = 0.25;
+// Anonymous disciples that stand in the hall so it looks full even with few viewers; real viewers stand among them.
+const crowd = { ambient: Math.min(MAX_AMBIENT_CROWD, Math.max(0, Math.round(Number(process.env.AMBIENT_CROWD ?? DEFAULT_AMBIENT_CROWD)) || 0)) };
 const music = { enabled: true, volume: Math.min(1, Math.max(0, Number(process.env.MUSIC_VOLUME) || DEFAULT_MUSIC_VOLUME)) };
 let connection = null;
 let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, roomId: null };
@@ -260,6 +264,7 @@ io.on('connection', (socket) => {
   socket.emit('leaderboard', leaderboard());
   socket.emit('voice', voiceEnabled);
   socket.emit('music', music);
+  socket.emit('ambient', crowd.ambient);
 
   socket.on('live:connect', (uniqueId) => {
     connectLive(uniqueId).catch((err) => {
@@ -268,6 +273,11 @@ io.on('connection', (socket) => {
     });
   });
   socket.on('live:disconnect', () => disconnectLive());
+  socket.on('ambient:set', (n) => {
+    const value = Math.round(Number(n));
+    if (Number.isFinite(value)) crowd.ambient = Math.min(MAX_AMBIENT_CROWD, Math.max(0, value));
+    io.emit('ambient', crowd.ambient);
+  });
   socket.on('music:set', (next) => {
     if (typeof next?.enabled === 'boolean') music.enabled = next.enabled;
     const volume = Number(next?.volume);

@@ -42,6 +42,18 @@
   $('voiceOn').onchange = (e) => socket.emit('voice:set', e.target.checked);
   socket.on('voice', (on) => { $('voiceOn').checked = on; });
 
+  // Anonymous crowd: how many disciples stand in the hall besides the real viewers.
+  let ambientTimer = null;
+  $('ambientNum').oninput = () => {
+    $('ambientLabel').textContent = `${$('ambientNum').value} người`;
+    clearTimeout(ambientTimer);
+    ambientTimer = setTimeout(() => socket.emit('ambient:set', Number($('ambientNum').value)), 150);
+  };
+  socket.on('ambient', (n) => {
+    $('ambientNum').value = n;
+    $('ambientLabel').textContent = `${n} người`;
+  });
+
   // Background music: the overlay plays it; here only on/off and the level are set.
   let volumeTimer = null;
   const sendMusic = () => socket.emit('music:set', { enabled: $('musicOn').checked, volume: $('musicVol').value / 100 });

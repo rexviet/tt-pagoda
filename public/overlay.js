@@ -3,14 +3,8 @@
 (() => {
   const W = 1080, H = 1920;
   const CENTER_X = W / 2;
-  const MAX_FIGURES = 150; // a safety cap for the renderer; beyond it the oldest idle disciple is retired
+  const MAX_FIGURES = 600; // a safety cap for the renderer, above the number of standing places; beyond it the oldest idle disciple is retired
 
-  // Kneeling mats run up the carpet towards the altar: the bigger the gift, the closer to the Buddha.
-  const STATIONS = {
-    tambao: { x: 540, y: 1225 },
-    buc: { x: 540, y: 1325 },
-    huong: { x: 540, y: 1425 },
-  };
   // Legend plates at the foot of the screen (labels only, nobody kneels here).
   const LEGEND = [
     { x: 340, y: 1810, label: '1 xu', sub: 'dâng hương' },
@@ -117,12 +111,11 @@
   // ---- scene (placeholder art) --------------------------------------------
   // Background art is a 1212x1298 image: scaled to cover 1080x1920 and centre-cropped.
   // Carpet in the scaled image: vanishing point y~1161, centre x=540, half-width ~77 -> ~784 at the bottom.
-  const CARPET_TOP_Y = 1161, CARPET_TOP_HALF = 77, CARPET_BOTTOM_HALF = 784;
-  const carpetHalfAt = (y) => CARPET_TOP_HALF + ((y - CARPET_TOP_Y) / (H - CARPET_TOP_Y)) * (CARPET_BOTTOM_HALF - CARPET_TOP_HALF);
+  const CARPET_TOP_Y = 1161; // where the floor begins at the foot of the altar; disciples shrink towards here
 
   function drawScene() {
     loadBackground().then((ok) => { if (!ok) drawVectorScene(); addGlow(); });
-    drawStations();
+    drawLegend();
   }
 
   async function loadBackground() {
@@ -176,17 +169,7 @@
     layers.bg.addChild(buddha);
   }
 
-  function drawStations() {
-    for (const s of Object.values(STATIONS)) {
-      const k = perspective(s.y);
-      const mat = new PIXI.Graphics()
-        .beginFill(s === STATIONS.tambao ? 0xb32020 : 0x8a8a8a, 0.92)
-        .lineStyle(2, 0xd9a93a)
-        .drawRoundedRect(-80 * k, -14 * k, 160 * k, 30 * k, 8)
-        .endFill();
-      mat.position.set(s.x, s.y);
-      layers.floor.addChild(mat);
-    }
+  function drawLegend() {
     for (const l of LEGEND) {
       const box = new PIXI.Graphics();
       box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 0, 170, 70, 8).endFill();
@@ -284,6 +267,7 @@
     body.anchor.set(0.5, 1);
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
+    label.visible = false; // names stay hidden in the crowd; see showLabel
     c.addChild(shadow, body, label);
     c.position.set(x, y);
     c.zIndex = y;
@@ -297,6 +281,13 @@
     layers.figures.addChild(c);
     trimFigures();
     return fig;
+  }
+
+  // The crowd is too dense for every name to be readable, so a name only shows while its owner is doing something.
+  function showLabel(fig, ms) {
+    fig.label.visible = true;
+    clearTimeout(fig.labelTimer);
+    if (ms > 0) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy) fig.label.visible = false; }, ms);
   }
 
   function trimFigures() {
@@ -319,7 +310,7 @@
     for (let i = figures.length - 1; i >= 0; i--) {
       const f = figures[i];
       f.c.scale.set(perspective(f.c.y) * f.jitter);
-      f.c.zIndex = f.c.y;
+      f.c.zIndex = f.spot ? 1e6 : f.c.y; // whoever the camera is on is drawn in front of the crowd
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
         tilt = Math.sin(now / 130) * 0.07;
@@ -332,32 +323,40 @@
     }
   }
 
-  // Waiting places: fixed rows across the hall, filled from the row nearest the mats, middle first, then left and right in turn.
-  // A disciple keeps its place until it is retired; after bringing a gift it walks back to the same place.
-  // Every waiting place is nearer the camera than every mat, so a disciple always walks UP to pray and back down.
-  // Rows are packed shoulder to shoulder across the carpet (no empty aisle): each row fills from the middle outwards,
-  // and every other row is shifted half a step so the crowd does not stand in a rigid grid.
-  const SLOT_ROW_START = Math.max(...Object.values(STATIONS).map((st) => st.y)) + 125; // clear of the lowest mat, which would otherwise hide behind the first row
-  const SLOT_ROW_STEP = 58, SLOT_ROWS = 6;
-  const SLOT_SPACING = 72; // sideways distance between neighbours
-  const SLOT_MAX_REACH = 470; // never stand further than this from the middle of the screen
+  // Standing places cover the whole floor of the hall, shoulder to shoulder: rows run from the foot of the altar to the
+  // bottom of the screen, and rows and neighbours are spaced in proportion to the disciple's size at that depth, so the
+  // crowd gets denser towards the back. Every other row is shifted half a step. A disciple keeps its place for good.
+  const FLOOR_TOP = 1230, FLOOR_BOTTOM = 1890;
+  const SLOT_MARGIN_X = 46; // keep disciples clear of the screen edges
+  const SLOT_SPACING = 60, SLOT_ROW_STEP = 42; // at full size; both shrink with depth
   const slots = [];
-  for (let r = 0; r < SLOT_ROWS; r++) {
-    const y = SLOT_ROW_START + r * SLOT_ROW_STEP;
-    const reach = Math.min(carpetHalfAt(y) * 0.92, SLOT_MAX_REACH);
-    const start = r % 2 ? SLOT_SPACING / 2 : 0;
-    const offsets = start === 0 ? [0] : [];
-    for (let k = start === 0 ? 1 : 0; start + k * SLOT_SPACING <= reach; k++) {
-      offsets.push(start + k * SLOT_SPACING, -(start + k * SLOT_SPACING));
+  for (let y = FLOOR_TOP, row = 0; y <= FLOOR_BOTTOM; row++) {
+    const k = perspective(y);
+    const spacing = SLOT_SPACING * k;
+    const perRow = Math.floor((W - 2 * SLOT_MARGIN_X) / spacing);
+    const shift = row % 2 ? spacing / 2 : 0;
+    for (let i = 0; i < perRow; i++) {
+      const x = SLOT_MARGIN_X + spacing * (i + 0.5) + shift;
+      if (x <= W - SLOT_MARGIN_X) slots.push({ x, y, owner: null });
     }
-    for (const dx of offsets) slots.push({ x: CENTER_X + dx, y, owner: null });
+    y += SLOT_ROW_STEP * k;
   }
+  // Hand the places out in a scattered (but always the same) order, so the first few arrivals spread over the whole hall.
+  (function shuffleSlots() {
+    let seed = 20261031;
+    const random = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    for (let i = slots.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+  })();
 
   function claimSlot(fig) {
     if (fig.slot) return fig.slot;
     let slot = slots.find((s) => !s.owner);
+    if (!slot) { // the hall is full: an anonymous disciple gives up its place for a real viewer
+      const extra = figures.find((f) => f.ambient && !f.busy);
+      if (extra) { slot = extra.slot; removeFigure(extra); }
+    }
     if (slot) slot.owner = fig;
-    else slot = slots[Math.floor(Math.random() * slots.length)]; // hall is full: stand among the others
+    else slot = slots[Math.floor(Math.random() * slots.length)]; // still full: stand among the others
     fig.slot = slot;
     return slot;
   }
@@ -429,6 +428,7 @@
 
   // ---- chat bubbles --------------------------------------------------------
   function showBubble(fig, text) {
+    showLabel(fig, 5000);
     if (fig.bubble && !fig.bubble.destroyed) fig.bubble.destroy({ children: true });
     const t = new PIXI.Text(text, { fontFamily: 'Arial', fontSize: 20, fill: 0x111111, wordWrap: true, wordWrapWidth: 230 });
     t.anchor.set(0.5);
@@ -493,42 +493,48 @@
   }
 
   // ---- gift choreography ---------------------------------------------------
+  // A disciple who brings a gift prays right where they stand while the camera closes in on them.
   async function offer(user, userId, tier) {
     const fig = findOrCreateFigure(user, userId);
-    fig.busy = true; fig.fresh = false;
+    fig.busy = true;
+    fig.spot = true;
+    showLabel(fig, 0); // the name stays up for the whole prayer
+    // The camera starts following at once, even while a newcomer is still walking in to their place.
     const sp = SPOTLIGHT_ZOOM[tier] ? spotlight(fig, SPOTLIGHT_ZOOM[tier]) : null;
     try {
+      if (fig.fresh) { // a newcomer first walks in to their place
+        fig.fresh = false;
+        const place = claimSlot(fig);
+        await walkTo(fig, place.x, place.y);
+      } else if (fig.arriving) {
+        await fig.arriving; // already on the way in: let them arrive before they kneel, or the walk would undo the bow
+      }
+      const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
       if (tier === 'huong') {
-        const s = STATIONS.huong;
-        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig);
-        for (let i = 0; i < 6; i++) { smoke(fig.c.x, fig.c.y - 60); await wait(350); }
+        for (let i = 0; i < 6; i++) { smoke(fig.c.x, headY()); await wait(350); }
         await bow(fig, 3);
       } else if (tier === 'buc') {
-        const s = STATIONS.buc;
-        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig, true);
-        sparks(fig.c.x, fig.c.y - 40, 16);
+        sparks(fig.c.x, headY(), 16);
         await wait(2500);
       } else if (tier === 'tambao') {
-        const s = STATIONS.tambao;
-        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig, true);
-        sparks(fig.c.x, fig.c.y - 40, 40);
+        sparks(fig.c.x, headY(), 40);
         flashBuddha();
         await wait(3500);
       } else if (tier === 'hoadang') {
-        await walkTo(fig, CENTER_X, 1510);
         await kneel(fig);
         releaseLanterns(16);
-        sparks(CENTER_X, 1470, 50);
+        sparks(fig.c.x, headY(), 50);
         await wait(4000);
       }
     } finally {
-      if (sp) endSpotlight(sp); // the camera pulls back while the disciple walks home
+      if (sp) endSpotlight(sp); // the camera pulls back
       fig.busy = false;
-      const spot = claimSlot(fig);
-      await walkTo(fig, spot.x, spot.y);
+      fig.spot = false;
+      setPose(fig, 'kneelup');
+      showLabel(fig, 3000);
     }
   }
 
@@ -580,6 +586,7 @@
     particles.length = 0;
     tweens.splice(0).forEach((t) => t.resolve());
     drawBoard([]);
+    setTimeout(settleAmbient, 600); // the scene is empty again: the anonymous crowd stands back up
   }
 
   // ---- spoken lines (one at a time, so overlapping gifts never talk over each other) ----
@@ -746,6 +753,38 @@
     .then((list) => { music.tracks = Array.isArray(list) ? list : []; startMusic(); })
     .catch(() => { /* no music available */ });
 
+  // ---- ambient crowd ---------------------------------------------------------
+  // Anonymous disciples fill the hall to the level set in the admin, so it looks full even with few viewers.
+  // They only stand and kneel with everyone else; real viewers take free places among them.
+  let ambientTarget = 0;
+  let ambientTimer = null;
+
+  function ambientCount() { return figures.filter((f) => f.ambient).length; }
+
+  function settleAmbient() {
+    clearTimeout(ambientTimer);
+    const have = ambientCount();
+    if (have < ambientTarget) {
+      const fig = makeFigure('Phật tử', null, CENTER_X, H - 20);
+      fig.ambient = true;
+      fig.fresh = false;
+      const place = claimSlot(fig);
+      fig.c.position.set(place.x, place.y);
+      fig.c.alpha = 0;
+      tween(fig.c, { alpha: 1 }, 500);
+      ambientTimer = setTimeout(settleAmbient, 40); // arrive one after another, not all in one frame
+    } else if (have > ambientTarget) {
+      const extra = figures.find((f) => f.ambient && !f.busy);
+      if (extra) removeFigure(extra);
+      ambientTimer = setTimeout(settleAmbient, 20);
+    }
+  }
+
+  function setAmbientCrowd(n) {
+    ambientTarget = Math.max(0, Math.min(Number(n) || 0, slots.length - 20));
+    settleAmbient();
+  }
+
   // ---- event wiring --------------------------------------------------------
   const NARRATION = {
     huong: 'dâng hương, cầu bình an',
@@ -754,12 +793,13 @@
     hoadang: 'thả đèn hoa đăng, nỗ thẻ quẻ Đại Cát',
   };
 
-  // A newly created disciple enters from the foot of the hall and walks up to a waiting place on the carpet.
+  // A newly created disciple enters from the foot of the hall and walks up to their standing place.
   function welcome(fig) {
     if (!fig.fresh || fig.busy) return;
     fig.fresh = false;
     const s = claimSlot(fig);
-    walkTo(fig, s.x, s.y).catch(() => {});
+    showLabel(fig, 4000);
+    fig.arriving = walkTo(fig, s.x, s.y).catch(() => {}).finally(() => { fig.arriving = null; });
   }
 
   function onOverlayEvent(ev) {
@@ -798,5 +838,6 @@
     socket.on('overlay', onOverlayEvent);
     socket.on('leaderboard', drawBoard);
     socket.on('music', applyMusicSettings);
+    socket.on('ambient', setAmbientCrowd);
   });
 })();

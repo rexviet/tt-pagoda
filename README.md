@@ -44,3 +44,8 @@ Kiểm tra một câu: `node scripts/tts-check.js`. Mỗi quà gọi một lần
 ## Chẩn đoán âm thanh
 
 Thêm `&debug=1` vào link overlay (ví dụ `/overlay?sound=1&debug=1`): trang in lên màn hình việc âm thanh có được phép không, nhạc đang phát hay bị chặn, và trạng thái giọng đọc.
+
+## Đám đông
+
+Phật tử đứng khắp nền điện, mỗi người một chỗ cố định (khoảng 400 chỗ). "Đám đông nền" ở trang admin (mặc định 150, biến `AMBIENT_CROWD` trong `.env`) là những Phật tử vô danh đứng sẵn để điện luôn đông; người xem thật đứng xen vào, kéo về 0 nếu chỉ muốn thấy người xem thật.
+Khi có quà, nhân vật lạy ngay tại chỗ còn máy quay phóng vào họ (mức phóng ở `SPOTLIGHT_ZOOM` trong `public/overlay.js`). Tên chỉ hiện với người đang vào phòng, chat hoặc tặng quà.
