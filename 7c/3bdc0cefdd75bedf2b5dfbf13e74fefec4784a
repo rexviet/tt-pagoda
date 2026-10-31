@@ -1,0 +1,19 @@
+server.js
+  s_56a6e42b43e569::t_779a4957a68c19 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c3bdc0cefdd75bedf2b5dfbf13e74fefec4784a",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
