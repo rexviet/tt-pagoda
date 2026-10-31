@@ -71,7 +71,7 @@ app.get('/tts/:id.mp3', async (req, res) => {
 
 const scores = new Map(); // uniqueId -> { name, score }
 let voiceEnabled = true;
-const DEFAULT_AMBIENT_CROWD = 150;
+const DEFAULT_AMBIENT_CROWD = 50;
 const MAX_AMBIENT_CROWD = 350;
 const DEFAULT_MUSIC_VOLUME = 0.25;
 // Anonymous disciples that stand in the hall so it looks full even with few viewers; real viewers stand among them.

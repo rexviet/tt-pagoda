@@ -232,7 +232,7 @@
   const baseOf = (pose) => pose.replace(/up2?$/, '');
   // A cast whose frames all share one scale (its pose images are cut from one drawing size) is drawn at this many
   // design pixels per image pixel, instead of the per-pose heights above.
-  const PIXEL_SCALE = { devotee: 0.66 };
+  const PIXEL_SCALE = { devotee: 1.2 };
   const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
@@ -346,7 +346,7 @@
   // crowd gets denser towards the back. Every other row is shifted half a step. A disciple keeps its place for good.
   const FLOOR_TOP = 1265, FLOOR_BOTTOM = 1890; // the crowd starts below the cushions, which belong to the top six
   const SLOT_MARGIN_X = 46; // keep disciples clear of the screen edges
-  const SLOT_SPACING = 60, SLOT_ROW_STEP = 42; // at full size; both shrink with depth
+  const SLOT_SPACING = 110, SLOT_ROW_STEP = 70; // at full size; both shrink with depth
   const slots = [];
   for (let y = FLOOR_TOP, row = 0; y <= FLOOR_BOTTOM; row++) {
     const k = perspective(y);
@@ -549,7 +549,7 @@
   // 3 and 4 the next pair, 5 and 6 the outer pair (rank 1 on the left, 2 on the right, and so on). The server sends
   // the ranking with every change; whoever enters or leaves the top six walks to the new place or back into the crowd.
   const CUSHION_Y = 1150; // where a disciple's knees meet the cushion
-  const VIP_SCALE = 1.5; // the cushions are large, so the people on them are drawn larger than the crowd at that depth
+  const VIP_SCALE = 1.1; // the cushions are large, so the people on them are drawn larger than the crowd at that depth
   const vipSlots = [382, 718, 214, 884, 65, 1024].map((x) => ({ x, y: CUSHION_Y, owner: null }));
   const VIP_SPEED = 380;
 
@@ -612,7 +612,7 @@
   // ---- gift choreography ---------------------------------------------------
   // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
   // be on at a time, so gifts take their turn; if more than a few are waiting the extra ones just bow where they stand.
-  const HERO_SCALE = 1.8; // drawn larger in the shot, as if closer to the camera
+  const HERO_SCALE = 1.15; // drawn larger in the shot, as if closer to the camera
   const RUN_SPEED = 520;
   // ---- the gift queue ------------------------------------------------------------------------
   // Only one gift can be on stage at a time, so the others wait their turn, under four simple rules:
