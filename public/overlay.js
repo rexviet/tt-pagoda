@@ -667,6 +667,26 @@
     else startMusic();
   }
 
+  // ?debug=1 prints the sound state on the overlay, for finding out why a host (LIVE Studio, OBS) is silent.
+  if (params.has('debug')) {
+    const panel = document.createElement('pre');
+    Object.assign(panel.style, {
+      position: 'fixed', left: '8px', top: '8px', zIndex: 20, margin: 0, padding: '10px 12px', maxWidth: '96vw',
+      font: '600 22px/1.35 monospace', color: '#0f0', background: 'rgba(0,0,0,0.75)', whiteSpace: 'pre-wrap',
+    });
+    document.body.appendChild(panel);
+    setInterval(() => {
+      const a = music.audio;
+      panel.textContent = [
+        `sound allowed : ${!MUTED}  (obs=${!!window.obsstudio}, sound=1: ${params.has('sound')}, mute=1: ${params.has('mute')})`,
+        `music tracks  : ${music.tracks.length}  enabled=${music.enabled}  volume=${music.volume}`,
+        a ? `music audio   : ${a.paused ? 'PAUSED' : 'playing'}  t=${a.currentTime.toFixed(1)}s  vol=${a.volume.toFixed(2)}  ready=${a.readyState} net=${a.networkState}${a.error ? `  ERROR code ${a.error.code}` : ''}` : 'music audio   : not created',
+        `autoplay block: ${unlockHint ? 'YES (waiting for a click)' : 'no'}`,
+        `speech        : queue=${speechQueue.length} speaking=${speaking}`,
+      ].join('\n');
+    }, 500);
+  }
+
   fetch('/api/music')
     .then((r) => (r.ok ? r.json() : []))
     .then((list) => { music.tracks = Array.isArray(list) ? list : []; startMusic(); })

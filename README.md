@@ -40,3 +40,7 @@ Giọng đọc cấu hình bằng file `.env` (git bỏ qua). Copy `.env.example
 - Khởi động sẽ in dòng `[tts] voice: ...` cho biết server giọng có dùng được và có voice không (sai PIN báo ngay).
 
 Kiểm tra một câu: `node scripts/tts-check.js`. Mỗi quà gọi một lần API (khoảng 1 giây), câu đã đọc được cache trong `.cache/tts`.
+
+## Chẩn đoán âm thanh
+
+Thêm `&debug=1` vào link overlay (ví dụ `/overlay?sound=1&debug=1`): trang in lên màn hình việc âm thanh có được phép không, nhạc đang phát hay bị chặn, và trạng thái giọng đọc.
