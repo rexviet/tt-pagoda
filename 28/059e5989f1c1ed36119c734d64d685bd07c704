@@ -1,0 +1,25 @@
+public/admin.html
+  s_56a6e42b43e569::t_c2960075d87d6c 88-93
+public/admin.js
+  s_56a6e42b43e569::t_a4015ddbce86d7 45-56
+public/overlay.js
+  s_56a6e42b43e569::t_3186a77e17061c 6,114,118,172,270,286-292,313,326-331,333-340,342,344-349,354-357,359,431,496,499-502,505-512,515,519,523,529,533,535-537,589,756-787,796,801-802,841
+server.js
+  s_56a6e42b43e569::t_062d09c0b4b275 58-59,61-62,267,276-280
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28059e5989f1c1ed36119c734d64d685bd07c704",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
