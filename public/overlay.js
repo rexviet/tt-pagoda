@@ -6,11 +6,19 @@
   const MAX_FIGURES = 90;
   const IDLE_LIFETIME_MS = 45000;
 
+  // Kneeling mats run up the carpet towards the altar: the bigger the gift, the closer to the Buddha.
   const STATIONS = {
-    huong: { x: 340, y: 1560, label: '1 xu', sub: 'dâng hương' },
-    buc: { x: 540, y: 1560, label: '5 xu', sub: 'lên bục' },
-    tambao: { x: 740, y: 1560, label: '10+ xu', sub: 'tặng công đức' },
+    tambao: { x: 540, y: 1225 },
+    buc: { x: 540, y: 1325 },
+    huong: { x: 540, y: 1425 },
   };
+  // Legend plates at the foot of the screen (labels only, nobody kneels here).
+  const LEGEND = [
+    { x: 340, y: 1810, label: '1 xu', sub: 'dâng hương' },
+    { x: 540, y: 1810, label: '5 xu', sub: 'lên bục' },
+    { x: 740, y: 1810, label: '10+ xu', sub: 'tặng công đức' },
+  ];
+
 
   const app = new PIXI.Application({ width: W, height: H, backgroundAlpha: 0, antialias: true });
   const stageEl = document.getElementById('stage');
@@ -125,16 +133,24 @@
 
   function drawStations() {
     for (const s of Object.values(STATIONS)) {
-      const mat = new PIXI.Graphics().beginFill(s === STATIONS.tambao ? 0xb32020 : 0x777777, 0.9).drawRoundedRect(-62, -16, 124, 30, 8).endFill();
+      const k = perspective(s.y);
+      const mat = new PIXI.Graphics()
+        .beginFill(s === STATIONS.tambao ? 0xb32020 : 0x8a8a8a, 0.92)
+        .lineStyle(2, 0xd9a93a)
+        .drawRoundedRect(-80 * k, -14 * k, 160 * k, 30 * k, 8)
+        .endFill();
       mat.position.set(s.x, s.y);
+      layers.floor.addChild(mat);
+    }
+    for (const l of LEGEND) {
       const box = new PIXI.Graphics();
-      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 40, 170, 70, 8).endFill();
-      box.position.set(s.x, s.y);
-      const a = new PIXI.Text(s.label, { fontFamily: 'Arial', fontSize: 24, fontWeight: '700', fill: 0xffe9a8 });
-      const b = new PIXI.Text(s.sub, { fontFamily: 'Arial', fontSize: 18, fill: 0xf4cf7a });
+      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 0, 170, 70, 8).endFill();
+      box.position.set(l.x, l.y);
+      const a = new PIXI.Text(l.label, { fontFamily: 'Arial', fontSize: 24, fontWeight: '700', fill: 0xffe9a8 });
+      const b = new PIXI.Text(l.sub, { fontFamily: 'Arial', fontSize: 18, fill: 0xf4cf7a });
       a.anchor.set(0.5); b.anchor.set(0.5);
-      a.position.set(s.x, s.y + 65); b.position.set(s.x, s.y + 91);
-      layers.floor.addChild(mat, box, a, b);
+      a.position.set(l.x, l.y + 25); b.position.set(l.x, l.y + 51);
+      layers.floor.addChild(box, a, b);
     }
   }
 
@@ -273,16 +289,18 @@
 
   function carpetSpot() {
     const left = Math.random() < 0.5;
-    const y = 1250 + Math.random() * 250;
+    const y = 1500 + Math.random() * 250;
     const half = carpetHalfAt(y);
-    const x = CENTER_X + (left ? -1 : 1) * half * (0.3 + Math.random() * 0.9);
+    const x = CENTER_X + (left ? -1 : 1) * half * (0.3 + Math.random() * 0.65);
     return { x, y };
   }
 
   function findOrCreateFigure(name, userId) {
     let fig = figures.find((f) => f.userId === userId);
     if (fig) return fig;
-    return makeFigure(name, userId, CENTER_X + (Math.random() - 0.5) * 120, CARPET_TOP_Y + 20);
+    const fig2 = makeFigure(name, userId, CENTER_X + (Math.random() - 0.5) * 160, H - 20);
+    fig2.fresh = true;
+    return fig2;
   }
 
   async function walkTo(fig, x, y, speed = 260) {
@@ -405,36 +423,35 @@
   // ---- gift choreography ---------------------------------------------------
   async function offer(user, userId, tier) {
     const fig = findOrCreateFigure(user, userId);
-    fig.busy = true; fig.keep = true;
+    fig.busy = true; fig.keep = true; fig.fresh = false;
     try {
       if (tier === 'huong') {
         const s = STATIONS.huong;
-        await walkTo(fig, s.x + (Math.random() - 0.5) * 60, s.y);
+        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig);
         for (let i = 0; i < 6; i++) { smoke(fig.c.x, fig.c.y - 60); await wait(350); }
         await bow(fig, 3);
       } else if (tier === 'buc') {
         const s = STATIONS.buc;
-        await walkTo(fig, s.x, s.y);
+        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig, true);
         sparks(fig.c.x, fig.c.y - 40, 16);
         await wait(2500);
       } else if (tier === 'tambao') {
         const s = STATIONS.tambao;
-        await walkTo(fig, s.x, s.y);
+        await walkTo(fig, s.x + (Math.random() - 0.5) * 70, s.y);
         await kneel(fig, true);
         sparks(fig.c.x, fig.c.y - 40, 40);
         flashBuddha();
         await wait(3500);
       } else if (tier === 'hoadang') {
-        await walkTo(fig, CENTER_X, 1440);
+        await walkTo(fig, CENTER_X, 1510);
         await kneel(fig);
         releaseLanterns(16);
-        sparks(CENTER_X, 1400, 50);
+        sparks(CENTER_X, 1470, 50);
         await wait(4000);
       }
     } finally {
-      await stand(fig);
       fig.busy = false; fig.keep = false; fig.bornAt = performance.now();
       const spot = carpetSpot();
       await walkTo(fig, spot.x, spot.y);
@@ -508,7 +525,8 @@
       case 'chat': {
         const fig = findOrCreateFigure(ev.user, ev.userId);
         showBubble(fig, ev.text);
-        if (!fig.busy && fig.c.y < 1250) {
+        if (fig.fresh && !fig.busy) {
+          fig.fresh = false;
           const s = carpetSpot();
           walkTo(fig, s.x, s.y);
         }
