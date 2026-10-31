@@ -29,6 +29,8 @@ Với server đang chạy: `PORT=3000 node scripts/sim-smoke.js`
 
 Mỗi quà và mỗi lượt chia sẻ được đọc thành một câu: "<tên> đã dâng hương, chúc bạn <lời chúc ngẫu nhiên>".
 Lời chúc sửa trong `speech.js` (`BLESSINGS`). Tick "Control audio via OBS" trong Browser Source để giọng lên stream.
+Chỉ trang overlay trong **OBS** phát tiếng, để không bị đọc đôi khi còn tab Chrome mở. Muốn nghe thử trong Chrome thì mở `/overlay?sound=1`.
+Nếu OBS của bạn im lặng, thêm `?sound=1` vào URL của Browser Source.
 
 Giọng đọc cấu hình bằng file `.env` (git bỏ qua). Copy `.env.example` thành `.env` rồi điền:
 

@@ -506,7 +506,10 @@
   }
 
   // ---- spoken lines (one at a time, so overlapping gifts never talk over each other) ----
-  const MUTED = new URLSearchParams(location.search).has('mute'); // the admin preview stays silent
+  // Several pages can be open at once (OBS, a test tab, the admin preview) and each one receives every event,
+  // so only OBS speaks by default; any other browser needs ?sound=1, and ?mute=1 silences even OBS.
+  const params = new URLSearchParams(location.search);
+  const MUTED = params.has('mute') || !(window.obsstudio || params.has('sound'));
   const MAX_PENDING_SPEECH = 4;
   const speechQueue = [];
   let speaking = false;
