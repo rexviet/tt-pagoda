@@ -1,0 +1,21 @@
+scripts/tiktok-events-test.js
+  s_56a6e42b43e569::t_8cad657520b8b5 3,45-79
+server.js
+  s_56a6e42b43e569::t_c11b2a9fc482da 15,105-108,133-146,148,150-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e1d55dc41170d310b500c98881eb745b02d2224",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
