@@ -635,36 +635,71 @@
   }
 
   // ---- leaderboard ---------------------------------------------------------
+  // The phone crops the 1080-wide canvas to roughly x 96..984 and TikTok's own buttons sit on the right edge, so the board
+  // ends at x 970, inside that. Everything on the board scales with the size of the names.
+  const BOARD_W = 270;
+  const BOARD_NAME_SIZE = 24;
   const board = new PIXI.Container();
-  board.position.set(W - 270, 330);
+  board.position.set(W - BOARD_W - 110, 330); // right edge at x 970, leaving the Buddha's halo clear on the left
   layers.hud.addChild(board);
   // The board lists the people who just missed a cushion (ranks 7-10); the top six are on the cushions with their rank
   // on their name. With nobody to list it is hidden rather than shown empty.
   let boardHeight = 0;
   let boardState = { visible: false, rows: [] };
-  function drawBoard(rows, firstRank = 1) {
+  const ROWS_TOP = 72;
+  // vipScore is the score of the last cushion (rank 6). Equal scores rank by who got there first, so a challenger needs one
+  // coin more than the gap: "need" is what it takes to move onto a cushion.
+  function drawBoard(rows, firstRank = 1, vipScore = null) {
     board.removeChildren().forEach((c) => c.destroy({ children: true }));
-    board.visible = rows.length > 0;
-    boardHeight = board.visible ? 40 + rows.length * 44 : 0;
-    boardState = { visible: board.visible, rows: rows.map((r, i) => ({ rank: firstRank + i, name: r.name, score: r.score })) };
+    const N = BOARD_NAME_SIZE;
+    const hintSize = Math.round(N * 0.78);
+    const rowH = N + hintSize + 18;
+    const shown = rows.length > 0;
+    board.visible = shown;
+    boardHeight = shown ? ROWS_TOP + rows.length * rowH + 6 : 0;
+    const needOf = (r) => (vipScore == null ? null : Math.max(1, vipScore - r.score + 1));
+    boardState = {
+      visible: shown, vipScore, x: board.x, width: BOARD_W, nameSize: N,
+      rows: rows.map((r, i) => ({ rank: firstRank + i, name: r.name, score: r.score, need: needOf(r) })),
+    };
     positionQueueBadge();
-    if (!board.visible) return;
-    const bg = new PIXI.Graphics().lineStyle(3, 0xd9a93a).beginFill(0x3b0f0a, 0.9).drawRoundedRect(0, 0, 250, boardHeight, 10).endFill();
-    const title = new PIXI.Text('TÂM LÒNG THÀNH', { fontFamily: 'Arial', fontSize: 20, fontWeight: '700', fill: 0xffe9a8 });
-    title.anchor.set(0.5, 0); title.position.set(125, 10);
+    if (!shown) return;
+    const bg = new PIXI.Graphics().lineStyle(3, 0xd9a93a).beginFill(0x3b0f0a, 0.9).drawRoundedRect(0, 0, BOARD_W, boardHeight, 10).endFill();
+    const title = new PIXI.Text('TÂM LÒNG THÀNH', { fontFamily: 'Arial', fontSize: 25, fontWeight: '700', fill: 0xffe9a8 });
+    title.anchor.set(0.5, 0); title.position.set(BOARD_W / 2, 10);
     board.addChild(bg, title);
+    if (vipScore != null) {
+      const mark = new PIXI.Text(`Đệm cuối (hạng ${firstRank - 1}) có ${vipScore} xu`, { fontFamily: 'Arial', fontSize: 17, fontWeight: '700', fill: 0xf5c518 });
+      mark.anchor.set(0.5, 0); mark.position.set(BOARD_W / 2, 43);
+      board.addChild(mark);
+    }
+    const dotR = Math.round(N * 0.62);
+    const dotX = 14 + dotR;
+    const nameX = dotX + dotR + 10;
     rows.forEach((r, i) => {
-      const y = 44 + i * 44;
+      const y = ROWS_TOP + i * rowH;
       const place = firstRank + i;
       const medal = [0xf5c518, 0xc0c0c0, 0xcd7f32][place - 1] || 0x888888;
-      const dot = new PIXI.Graphics().beginFill(medal).drawCircle(24, y + 18, 13).endFill();
-      const rank = new PIXI.Text(String(place), { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0x222222 });
-      rank.anchor.set(0.5); rank.position.set(24, y + 18);
-      const nm = new PIXI.Text(r.name.slice(0, 12), { fontFamily: 'Arial', fontSize: 17, fill: 0xffffff });
-      nm.position.set(48, y + 8);
-      const sc = new PIXI.Text(String(r.score), { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffe9a8 });
-      sc.anchor.set(1, 0); sc.position.set(238, y + 9);
+      const midY = y + rowH / 2 - 2;
+      const dot = new PIXI.Graphics().beginFill(medal).drawCircle(dotX, midY, dotR).endFill();
+      const rank = new PIXI.Text(String(place), { fontFamily: 'Arial', fontSize: Math.round(N * 0.72), fontWeight: '700', fill: 0x222222 });
+      rank.anchor.set(0.5); rank.position.set(dotX, midY);
+      const sc = new PIXI.Text(String(r.score), { fontFamily: 'Arial', fontSize: Math.round(N * 0.92), fontWeight: '700', fill: 0xffe9a8 });
+      sc.anchor.set(1, 0); sc.position.set(BOARD_W - 14, y + 6);
+      const nm = new PIXI.Text(Array.from(r.name).slice(0, 14).join(''), { fontFamily: 'Arial', fontSize: N, fontWeight: '700', fill: 0xffffff });
+      nm.position.set(nameX, y + 6);
+      const room = BOARD_W - 14 - sc.width - 8 - nameX; // a long name is squeezed rather than running into the score
+      if (nm.width > room) nm.scale.set(room / nm.width);
       board.addChild(dot, rank, nm, sc);
+      const need = needOf(r);
+      if (need != null) {
+        const close = need <= 2; // one or two coins away: say so loudly
+        const hint = new PIXI.Text(need === 1 ? 'Chỉ còn 1 xu là lên đệm!' : `còn ${need} xu để lên đệm`, { fontFamily: 'Arial', fontSize: hintSize, fontWeight: close ? '700' : '400', fill: close ? 0xffa24a : 0xd9c58a });
+        hint.position.set(nameX, y + 6 + N + 3);
+        const hintRoom = BOARD_W - 12 - nameX;
+        if (hint.width > hintRoom) hint.scale.set(hintRoom / hint.width); // the longest sentence is squeezed to stay inside the frame
+        board.addChild(hint);
+      }
     });
   }
   window.__board = () => boardState; // debug handle for tests
@@ -775,7 +810,7 @@
   const offerText = (e) => `${e.user} ${NARRATION[e.tier]} (x${e.count})`;
 
   function positionQueueBadge() {
-    if (queueBadge) queueBadge.position.set(W - 145, board.y + (boardHeight ? boardHeight + 10 : 0));
+    if (queueBadge) queueBadge.position.set(board.x + BOARD_W / 2, board.y + (boardHeight ? boardHeight + 10 : 0));
   }
 
   function updateQueueBadge() {
@@ -1210,11 +1245,11 @@
     socket.on('overlay', onOverlayEvent);
     socket.on('leaderboard', (rows) => {
       const first = vipSlots.length; // the cushions take ranks 1-6, the board lists the next four
-      drawBoard(rows.slice(first, first + 4), first + 1);
+      drawBoard(rows.slice(first, first + 4), first + 1, rows[first - 1] ? rows[first - 1].score : null);
       applyVipRanks(rows);
     });
+    socket.on('label:config', setLabelConfig);
     socket.on('music', applyMusicSettings);
     socket.on('ambient', setAmbientCrowd);
   });
 })();
-    socket.on('label:config', setLabelConfig);

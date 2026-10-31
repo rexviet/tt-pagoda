@@ -213,7 +213,7 @@ Chỉ tải lại trang overlay là đủ, không cần restart server. File nh�
 
 ### Cảnh điện
 - **Ảnh nền:** `public/assets/background.png`, nên 2160×3840 (tỉ lệ 9:16, mỗi cạnh không quá 4096). Các vị trí trong `public/overlay.js` (`ALTAR_SPOT`, `ALTAR_VIEW`, `CUSHION_Y`, vị trí 6 đệm, `CARPET_TOP_Y`, `FLOOR_TOP`) được **đo trên ảnh nền hiện tại**; đổi ảnh thì phải đo và chỉnh lại các số này.
-- **Top 6 bảng xếp hạng** ngồi sẵn trên 6 đệm: hạng 1 và 2 ở hai đệm trong cùng, rồi 3 và 4, rồi 5 và 6. Ai vượt lên thì mọi người dịch chỗ. Bảng "TÂM LÒNG THÀNH" hiện hạng 7 đến 10, ẩn khi chưa có ai.
+- **Top 6 bảng xếp hạng** ngồi sẵn trên 6 đệm: hạng 1 và 2 ở hai đệm trong cùng, rồi 3 và 4, rồi 5 và 6. Ai vượt lên thì mọi người dịch chỗ. Bảng "TÂM LÒNG THÀNH" hiện hạng 7 đến 10, ẩn khi chưa có ai. Đầu bảng ghi số xu của hạng 6 (mức người ngoài đệm cần vượt). Mỗi dòng cho biết còn bao nhiêu xu để lên đệm (còn 1 hoặc 2 xu thì chữ cam). Điểm bằng nhau thì ai đạt mức điểm đó trước xếp trên, nên người chỉ đuổi kịp vẫn xếp sau và phải hơn hạng 6 một xu.
 - **Đám đông:** Phật tử đứng khắp nền điện, mỗi người một chỗ cố định. Thanh "Đám đông nền" ở admin (hoặc `AMBIENT_CROWD`) quyết định số người vô danh đứng sẵn cho điện luôn đông.
 - **Tặng quà:** người tặng chạy lên lạy ở giữa 6 đệm, máy quay lấy khung bàn thờ và tượng Phật, đám đông mờ đi. Mỗi lần chỉ một người; quà đến dồn thì xếp hàng: người đang chờ tặng thêm thì cộng dồn, quà lớn đi trước, tối đa 5 người chờ (người thừa chỉ cúi lạy tại chỗ), chờ quá 25 giây cũng chỉ cúi lạy tại chỗ.
 

@@ -21,6 +21,23 @@ async function checkJoin() {
   console.log('OK: join event');
 }
 
+// Equal scores are ordered by who reached that score first, not by who gave a gift first.
+async function checkTieBreak() {
+  const give = async (user, times) => { for (let i = 0; i < times; i++) { s.emit('sim:gift', { user, tierId: 'huong' }); await new Promise((r) => setTimeout(r, 40)); } };
+  s.emit('session:reset');
+  await new Promise((r) => setTimeout(r, 150));
+  await give('Early', 1); // first ever gift, 1 coin
+  await give('Quick', 2); // reaches 2 coins
+  await give('Early', 1); // reaches 2 coins later than Quick
+  await new Promise((r) => setTimeout(r, 150));
+  assert.deepStrictEqual(board.map((r) => [r.name, r.score]), [['Quick', 2], ['Early', 2]], 'on equal scores the one who reached it first ranks higher');
+  await give('Quick', 1); // Quick leads, then Early catches up to 3 again
+  await give('Early', 1);
+  await new Promise((r) => setTimeout(r, 150));
+  assert.deepStrictEqual(board.map((r) => r.name), ['Quick', 'Early'], 'catching up to an equal score does not overtake');
+  console.log('OK: equal scores rank by who reached the score first');
+}
+
 async function checkMusic() {
   const list = await (await fetch(`http://localhost:${port}/api/music`)).json();
   assert.ok(Array.isArray(list), '/api/music always answers with a list, empty when there is no music');
@@ -87,7 +104,7 @@ s.on('connect', () => {
     assert.strictEqual(events.filter((e) => e.type === 'chat').length, 1);
     assert.deepStrictEqual(board.map((r) => [r.name, r.score]), [['B', 100], ['A', 51]]);
     console.log('OK: gifts, chat and leaderboard behave as expected');
-    checkSpeech().then(checkMusic).then(checkJoin).then(() => {
+    checkSpeech().then(checkMusic).then(checkJoin).then(checkTieBreak).then(() => {
       s.emit('session:reset');
       setTimeout(() => process.exit(0), 200);
     }).catch((e) => { console.error('FAIL:', e.message); process.exit(1); });

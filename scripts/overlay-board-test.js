@@ -57,7 +57,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(800);
   b = await board();
   console.log('8 people  :', show(b));
-  check('shows ranks 7 and 8 with their scores', b.visible && JSON.stringify(b.rows) === JSON.stringify([{ rank: 7, name: 'U7', score: 2 }, { rank: 8, name: 'U8', score: 1 }]));
+  // rank 6 is U6 with 3 coins, so a challenger needs 3 - score + 1 coins: equal is not enough, the earlier one stays ahead
+  check('shows ranks 7 and 8 with their scores and the coins still needed for a cushion', b.visible && JSON.stringify(b.rows) === JSON.stringify([{ rank: 7, name: 'U7', score: 2, need: 2 }, { rank: 8, name: 'U8', score: 1, need: 3 }]));
+  // The phone crops the 1080-wide canvas to about x 96..984 and TikTok puts its buttons on the right edge, so the board
+  // has to end well inside that and be roomy enough for large text.
+  check('the board sits clear of the right edge of a phone screen and away from the Buddha', b.x + b.width <= 975 && b.x >= 695);
+  check('the default name size is large enough to read on a phone', b.nameSize >= 22);
+  check('the board states the score of the last cushion', b.vipScore === 3);
 
   for (let n = 9; n <= 12; n++) await give(`U${n}`, 1);
   await sleep(800);

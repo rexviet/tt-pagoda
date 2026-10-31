@@ -75,7 +75,7 @@ app.get('/tts/:id.mp3', async (req, res) => {
 
 // ---- session state ---------------------------------------------------------
 
-const scores = new Map(); // uniqueId -> { name, score }
+const scores = new Map(); // uniqueId -> { name, score, reachedAt } (reachedAt = order in which the current score was reached)
 let voiceEnabled = true;
 const DEFAULT_AMBIENT_CROWD = 50;
 const MAX_AMBIENT_CROWD = 350;
@@ -98,9 +98,10 @@ let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, room
 // Equal scores rank by who reached that score first, so someone who only catches up never overtakes.
 function leaderboard() {
   return [...scores.entries()]
-    .map(([userId, entry]) => ({ userId, name: entry.name, score: entry.score }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, LEADERBOARD_SIZE);
+    .map(([userId, entry]) => ({ userId, name: entry.name, score: entry.score, reachedAt: entry.reachedAt }))
+    .sort((a, b) => b.score - a.score || a.reachedAt - b.reachedAt)
+    .slice(0, LEADERBOARD_SIZE)
+    .map(({ reachedAt, ...row }) => row);
 }
 
 function setStatus(next) {
@@ -131,10 +132,12 @@ function emitLeaderboard() {
   io.emit('leaderboard', leaderboard());
 }
 
+let scoreSeq = 0; // a counter rather than the clock: two gifts in the same millisecond still have an order
 function addScore(userId, name, coins) {
-  const entry = scores.get(userId) || { name, score: 0 };
+  const entry = scores.get(userId) || { name, score: 0, reachedAt: 0 };
   entry.name = name;
   entry.score += coins;
+  entry.reachedAt = ++scoreSeq;
   scores.set(userId, entry);
   emitLeaderboard();
 }
@@ -315,10 +318,10 @@ async function disconnectLive() {
 
 io.on('connection', (socket) => {
   socket.emit('status', status);
+  socket.emit('label:config', nameLabelConfig); // before anyone is drawn, so the first names already use it
   socket.emit('leaderboard', leaderboard());
   socket.emit('voice', voiceEnabled);
   socket.emit('music', music);
-  socket.emit('label:config', nameLabelConfig); // before anyone is drawn, so the first names already use it
   socket.emit('ambient', crowd.ambient);
 
   socket.on('live:connect', (uniqueId) => {
