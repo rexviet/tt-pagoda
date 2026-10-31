@@ -10,6 +10,15 @@ let board = [];
 s.on('overlay', (e) => events.push(e));
 s.on('leaderboard', (l) => { board = l; });
 
+async function checkJoin() {
+  events.length = 0;
+  s.emit('sim:join', { user: 'Khach Moi' });
+  await new Promise((r) => setTimeout(r, 200));
+  const join = events.find((e) => e.type === 'join');
+  assert.ok(join && join.user === 'Khach Moi' && join.userId, 'someone entering the room reaches the overlay');
+  console.log('OK: join event');
+}
+
 async function checkMusic() {
   const list = await (await fetch(`http://localhost:${port}/api/music`)).json();
   assert.ok(Array.isArray(list), '/api/music always answers with a list, empty when there is no music');
@@ -62,7 +71,7 @@ s.on('connect', () => {
     assert.strictEqual(events.filter((e) => e.type === 'chat').length, 1);
     assert.deepStrictEqual(board.map((r) => [r.name, r.score]), [['B', 100], ['A', 51]]);
     console.log('OK: gifts, chat and leaderboard behave as expected');
-    checkSpeech().then(checkMusic).then(() => {
+    checkSpeech().then(checkMusic).then(checkJoin).then(() => {
       s.emit('session:reset');
       setTimeout(() => process.exit(0), 200);
     }).catch((e) => { console.error('FAIL:', e.message); process.exit(1); });

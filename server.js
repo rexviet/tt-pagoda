@@ -145,6 +145,12 @@ function attachTikTokHandlers(conn) {
     io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
   });
 
+  conn.on(WebcastEvent.MEMBER, (data) => {
+    if (data.action === 3) return; // a subscription notice, not someone walking in
+    const { userId, name } = userOf(data);
+    io.emit('overlay', { type: 'join', user: name, userId });
+  });
+
   conn.on(WebcastEvent.CHAT, (data) => handleChat({ ...userOf(data), text: data.comment }));
 
   conn.on(WebcastEvent.STREAM_END, () => {
@@ -230,6 +236,11 @@ io.on('connection', (socket) => {
   socket.on('sim:chat', ({ user, text }) => {
     const name = String(user || 'Khách').slice(0, 30);
     handleChat({ userId: `sim:${name}`, name, text });
+  });
+
+  socket.on('sim:join', ({ user }) => {
+    const name = String(user || 'Khách').slice(0, 30);
+    io.emit('overlay', { type: 'join', user: name, userId: `sim:${name}` });
   });
 
   socket.on('sim:share', ({ user }) => {

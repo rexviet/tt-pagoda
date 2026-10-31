@@ -663,6 +663,14 @@
     hoadang: 'thả đèn hoa đăng, nỗ thẻ quẻ Đại Cát',
   };
 
+  // A newly created disciple enters from the foot of the hall and walks up to a waiting place on the carpet.
+  function welcome(fig) {
+    if (!fig.fresh || fig.busy) return;
+    fig.fresh = false;
+    const s = carpetSpot();
+    walkTo(fig, s.x, s.y).catch(() => {});
+  }
+
   function onOverlayEvent(ev) {
     if (ev.speech) enqueueSpeech(ev.speech);
     switch (ev.type) {
@@ -676,13 +684,12 @@
       case 'chat': {
         const fig = findOrCreateFigure(ev.user, ev.userId);
         showBubble(fig, ev.text);
-        if (fig.fresh && !fig.busy) {
-          fig.fresh = false;
-          const s = carpetSpot();
-          walkTo(fig, s.x, s.y);
-        }
+        welcome(fig);
         break;
       }
+      case 'join':
+        welcome(findOrCreateFigure(ev.user, ev.userId));
+        break;
       case 'share':
         showBanner(`${ev.user} đã chia sẻ buổi lễ 🙏`, 3500);
         break;

@@ -62,6 +62,7 @@
       : 'Chưa có file nhạc. Thả file mp3 vào public/assets/music rồi tải lại trang overlay; không có file thì không phát nhạc.';
   }).catch(() => { $('musicHint').textContent = ''; });
 
+  $('btnJoin').onclick = () => socket.emit('sim:join', { user: user() });
   $('btnShare').onclick = () => socket.emit('sim:share', { user: user() });
   $('btnBubble').onclick = () => socket.emit('sim:chat', { user: user(), text: text() });
   $('btnNammo').onclick = () => socket.emit('crowd:nammo', 8);
