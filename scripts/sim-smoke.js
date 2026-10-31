@@ -12,7 +12,7 @@ s.on('leaderboard', (l) => { board = l; });
 
 async function checkSpeech() {
   const spoken = events.filter((e) => e.type === 'gift');
-  assert.ok(spoken.every((e) => Array.isArray(e.speech) && e.speech.length === 2), 'every gift carries a name clip and a tail clip');
+  assert.ok(spoken.every((e) => Array.isArray(e.speech) && e.speech.length === 1), 'every gift carries one spoken line');
   let bytes = 0;
   for (const id of spoken[0].speech) {
     const res = await fetch(`http://localhost:${port}/tts/${id}.mp3`);

@@ -15,7 +15,7 @@ const { buildParts, audioFor, speakableName, PROVIDER } = require('../speech');
   for (const [i, text] of parts.entries()) {
     const t0 = Date.now();
     const audio = await audioFor(text);
-    const out = path.join(outDir, `${i}-${i === 0 ? 'name' : 'tail'}.mp3`);
+    const out = path.join(outDir, `line-${i}.mp3`);
     fs.writeFileSync(out, audio);
     console.log(`clip ${i}: ${audio.length} bytes in ${Date.now() - t0} ms -> ${out}`);
   }

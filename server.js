@@ -1,10 +1,14 @@
 const path = require('path');
+
+// Local settings (voice server address and PIN) live in .env, which git ignores. Load it before the modules that read env.
+try { process.loadEnvFile(path.join(__dirname, '.env')); } catch (_) { /* no .env: defaults apply */ }
+
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
-const { buildParts, audioFor, prewarm } = require('./speech');
+const { buildParts, audioFor, checkVoiceServer } = require('./speech');
 
 const PORT = Number(process.env.PORT) || 3000;
 const LEADERBOARD_SIZE = 3;
@@ -226,7 +230,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Admin:   http://localhost:${PORT}/admin`);
   console.log(`Overlay: http://localhost:${PORT}/overlay  (OBS Browser Source 1080x1920)`);
-  if (process.env.TTS_PREWARM !== '0') prewarm();
+  checkVoiceServer();
 });
 
 process.on('SIGINT', async () => {

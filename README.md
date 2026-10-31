@@ -24,3 +24,17 @@ Hiện là hình vector tạm. Thả `public/assets/background.png` (1080×1920)
 ## Kiểm tra nhanh
 
 Với server đang chạy: `PORT=3000 node scripts/sim-smoke.js`
+
+## Giọng nói
+
+Mỗi quà và mỗi lượt chia sẻ được đọc thành một câu: "<tên> đã dâng hương, chúc bạn <lời chúc ngẫu nhiên>".
+Lời chúc sửa trong `speech.js` (`BLESSINGS`). Tick "Control audio via OBS" trong Browser Source để giọng lên stream.
+
+Giọng đọc cấu hình bằng file `.env` (git bỏ qua). Copy `.env.example` thành `.env` rồi điền:
+
+- `TTS_PROVIDER=omnivoice`, `OMNIVOICE_URL`, `OMNIVOICE_VOICE`, `OMNIVOICE_PIN`: giọng clone trên server VoiceStudio có GPU.
+  Server trên Mac (device mps) từng tạo ra tiếng ồn thay vì tiếng người, nên dùng server GPU.
+- Không có `.env`: dùng giọng macOS Linh. Server GPU lỗi hoặc chậm quá 10 giây thì câu đó tự đọc bằng giọng Linh.
+- Khởi động sẽ in dòng `[tts] voice: ...` cho biết server giọng có dùng được và có voice không (sai PIN báo ngay).
+
+Kiểm tra một câu: `node scripts/tts-check.js`. Mỗi quà gọi một lần API (khoảng 1 giây), câu đã đọc được cache trong `.cache/tts`.
