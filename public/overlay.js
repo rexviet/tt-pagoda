@@ -269,6 +269,13 @@
     return FIGURE_FAR + (FIGURE_NEAR - FIGURE_FAR) * t;
   }
 
+  // ?names=1 keeps every name on screen, to see how a full hall reads. The simulated crowd gets made-up names for it.
+  const NAMES_ALWAYS = new URLSearchParams(location.search).get('names') === '1';
+  const FAKE_NAMES = ['Minh Anh', 'Thanh Dat', 'Ngọc Huyền', 'Quá Nguyễn', 'din', 'Little Duck Trades', 'Hoàng Long', 'Bảo Châu', 'Nguyễn Thị Thanh Hương',
+    'An Nhiên', 'Tâm An', 'Lan Phương', 'Đức Anh', 'Thu Hà', 'Phúc', 'Mai', 'Gia Bảo', 'Cô Ba Sài Gòn', 'Trần Văn Hiếu', 'Kim Ngân',
+    'Hạnh Phúc', 'Quang Vinh', 'Diệu Linh', 'Tuấn Kiệt', 'Hồng Nhung', 'Bình An', 'Thiện Tâm', 'Như Ý', 'Khánh Vy', 'Sen Vàng'];
+  const fakeName = () => FAKE_NAMES[Math.floor(Math.random() * FAKE_NAMES.length)];
+
   function makeFigure(name, userId, x, y) {
     const c = new PIXI.Container();
     const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 2, 40, 10).endFill();
@@ -280,7 +287,7 @@
     body.anchor.set(0.5, 1);
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
-    label.visible = false; // names stay hidden in the crowd; see showLabel
+    label.visible = NAMES_ALWAYS; // names stay hidden in the crowd; see showLabel
     // a black rounded plate behind the name so it reads against any background; it follows the label (see stepIdle)
     const labelBg = new PIXI.Graphics();
     labelBg.visible = false;
@@ -303,7 +310,7 @@
   function showLabel(fig, ms) {
     fig.label.visible = true;
     clearTimeout(fig.labelTimer);
-    if (ms > 0) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy && !fig.vipRank) fig.label.visible = false; }, ms);
+    if (ms > 0 && !NAMES_ALWAYS) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy && !fig.vipRank) fig.label.visible = false; }, ms);
   }
 
   function trimFigures() {
@@ -880,7 +887,7 @@
 
   function spawnCrowd(n) {
     for (let i = 0; i < n; i++) {
-      const fig = makeFigure(`Phật tử ${i + 1}`, null, CENTER_X, H - 20);
+      const fig = makeFigure(fakeName(), null, CENTER_X, H - 20);
       const s = claimSlot(fig);
       fig.c.position.set(s.x, s.y);
     }
@@ -1087,7 +1094,7 @@
     clearTimeout(ambientTimer);
     const have = ambientCount();
     if (have < ambientTarget) {
-      const fig = makeFigure('Phật tử', null, CENTER_X, H - 20);
+      const fig = makeFigure(fakeName(), null, CENTER_X, H - 20);
       fig.ambient = true;
       fig.fresh = false;
       const place = claimSlot(fig);
