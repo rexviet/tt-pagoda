@@ -496,18 +496,27 @@
   const board = new PIXI.Container();
   board.position.set(W - 270, 330);
   layers.hud.addChild(board);
-  const boardRows = [];
-  function drawBoard(rows) {
+  // The board lists the people who just missed a cushion (ranks 7-10); the top six are on the cushions with their rank
+  // on their name. With nobody to list it is hidden rather than shown empty.
+  let boardHeight = 0;
+  let boardState = { visible: false, rows: [] };
+  function drawBoard(rows, firstRank = 1) {
     board.removeChildren().forEach((c) => c.destroy({ children: true }));
-    const bg = new PIXI.Graphics().lineStyle(3, 0xd9a93a).beginFill(0x3b0f0a, 0.9).drawRoundedRect(0, 0, 250, 40 + Math.max(rows.length, 1) * 44, 10).endFill();
+    board.visible = rows.length > 0;
+    boardHeight = board.visible ? 40 + rows.length * 44 : 0;
+    boardState = { visible: board.visible, rows: rows.map((r, i) => ({ rank: firstRank + i, name: r.name, score: r.score })) };
+    positionQueueBadge();
+    if (!board.visible) return;
+    const bg = new PIXI.Graphics().lineStyle(3, 0xd9a93a).beginFill(0x3b0f0a, 0.9).drawRoundedRect(0, 0, 250, boardHeight, 10).endFill();
     const title = new PIXI.Text('TÂM LÒNG THÀNH', { fontFamily: 'Arial', fontSize: 20, fontWeight: '700', fill: 0xffe9a8 });
     title.anchor.set(0.5, 0); title.position.set(125, 10);
     board.addChild(bg, title);
     rows.forEach((r, i) => {
       const y = 44 + i * 44;
-      const medal = [0xf5c518, 0xc0c0c0, 0xcd7f32][i] || 0x888888;
+      const place = firstRank + i;
+      const medal = [0xf5c518, 0xc0c0c0, 0xcd7f32][place - 1] || 0x888888;
       const dot = new PIXI.Graphics().beginFill(medal).drawCircle(24, y + 18, 13).endFill();
-      const rank = new PIXI.Text(String(i + 1), { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0x222222 });
+      const rank = new PIXI.Text(String(place), { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0x222222 });
       rank.anchor.set(0.5); rank.position.set(24, y + 18);
       const nm = new PIXI.Text(r.name.slice(0, 12), { fontFamily: 'Arial', fontSize: 17, fill: 0xffffff });
       nm.position.set(48, y + 8);
@@ -516,6 +525,7 @@
       board.addChild(dot, rank, nm, sc);
     });
   }
+  window.__board = () => boardState; // debug handle for tests
 
   // ---- lanterns ------------------------------------------------------------
   function releaseLanterns(n = 14) {
@@ -620,13 +630,17 @@
 
   const offerText = (e) => `${e.user} ${NARRATION[e.tier]} (x${e.count})`;
 
+  function positionQueueBadge() {
+    if (queueBadge) queueBadge.position.set(W - 145, board.y + (boardHeight ? boardHeight + 10 : 0));
+  }
+
   function updateQueueBadge() {
     if (!queueBadge) {
       queueBadge = new PIXI.Text('', { fontFamily: 'Arial', fontSize: 20, fontWeight: '700', fill: 0xffe9a8, stroke: 0x000000, strokeThickness: 4 });
       queueBadge.anchor.set(0.5, 0);
-      queueBadge.position.set(W - 145, 520);
       layers.hud.addChild(queueBadge);
     }
+    positionQueueBadge();
     queueBadge.text = offerQueue.length ? `Đang chờ lạy: ${offerQueue.length}` : '';
   }
 
@@ -1046,7 +1060,11 @@
     drawBoard([]);
     const socket = io();
     socket.on('overlay', onOverlayEvent);
-    socket.on('leaderboard', (rows) => { drawBoard(rows.slice(0, 3)); applyVipRanks(rows); });
+    socket.on('leaderboard', (rows) => {
+      const first = vipSlots.length; // the cushions take ranks 1-6, the board lists the next four
+      drawBoard(rows.slice(first, first + 4), first + 1);
+      applyVipRanks(rows);
+    });
     socket.on('music', applyMusicSettings);
     socket.on('ambient', setAmbientCrowd);
   });

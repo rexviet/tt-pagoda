@@ -28,7 +28,7 @@ function takeSpeechToken(kind) {
   return true;
 }
 const STREAK_IDLE_MS = Number(process.env.STREAK_IDLE_MS) || 3000;
-const LEADERBOARD_SIZE = 6; // the overlay seats the top six on the cushions before the altar
+const LEADERBOARD_SIZE = 10; // the overlay seats ranks 1-6 on the cushions before the altar and lists 7-10 on the board
 
 const app = express();
 const server = http.createServer(app);

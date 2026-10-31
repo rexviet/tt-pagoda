@@ -86,3 +86,5 @@ Có hai bộ trong `public/assets/disciples/`, đặt tên `<tư thế>-<bộ>.p
 - **Top 6 bảng xếp hạng** ngồi sẵn trên 6 đệm: hạng 1 và 2 ở hai đệm trong cùng (hạng 1 bên trái, hạng 2 bên phải), 3 và 4 ở cặp tiếp theo, 5 và 6 ở cặp ngoài cùng. Có người vượt lên thì mọi người dịch chỗ, người rớt khỏi top 6 trở về đám đông. Người ngồi đệm hiện tên kèm thứ hạng và được vẽ lớn hơn.
 - **Tặng quà:** người tặng đi lên lạy ở giữa 6 đệm, máy quay lấy khung bàn thờ và tượng Phật, đám đông mờ đi.
 - **Hàng đợi quà** (mỗi lần một người trên sân khấu): người đang chờ mà tặng thêm thì cộng dồn vào lượt chờ; quà lớn đi trước, còn lại ai đến trước đi trước; tối đa 5 người chờ (người thứ 6 trở đi chỉ cúi lạy tại chỗ); chờ quá 25 giây cũng chỉ cúi lạy tại chỗ. Banner và giọng nói bắt đầu cùng lượt lạy. Góc phải hiện "Đang chờ lạy: N". Kiểm thử: `scripts/overlay-queue-test.js`, `scripts/overlay-vip-test.js` (chạy server với `SPEECH_REFILL_MS=300`).
+
+- **Bảng "TÂM LÒNG THÀNH"** hiện hạng 7 đến 10 (top 6 đã ngồi trên đệm, có thứ hạng trên tên); chưa có ai từ hạng 7 trở xuống thì bảng ẩn. Kiểm thử: `scripts/overlay-board-test.js`.
