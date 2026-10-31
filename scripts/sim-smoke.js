@@ -4,6 +4,8 @@ const { io } = require('socket.io-client');
 const assert = require('assert');
 
 const port = process.env.PORT || 3000;
+// Start the server with the same SPEECH_REFILL_MS (for example 300) so this test does not have to wait for the default 4 s.
+const REFILL_MS = Number(process.env.SPEECH_REFILL_MS) || 4000;
 const s = io(`http://localhost:${port}`);
 const events = [];
 let board = [];
@@ -44,6 +46,21 @@ async function checkSpeech() {
     bytes += size;
   }
   assert.strictEqual((await fetch(`http://localhost:${port}/tts/unknown.mp3`)).status, 404);
+
+  // A busy room cannot have every line spoken: with a full bucket (three lines), four gifts and a share in the same
+  // instant give the first three gifts a voice and the rest none.
+  await new Promise((r) => setTimeout(r, REFILL_MS * 3 + 100)); // let the bucket fill up
+  events.length = 0;
+  for (const user of ['G1', 'G2', 'G3', 'G4']) s.emit('sim:gift', { user, tierId: 'huong' });
+  s.emit('sim:share', { user: 'F' });
+  await new Promise((r) => setTimeout(r, 200));
+  assert.deepStrictEqual(
+    events.filter((e) => e.type === 'gift').map((e) => e.speech !== null),
+    [true, true, true, false],
+    'three gifts are spoken, the fourth is shown silently',
+  );
+  assert.strictEqual(events.find((e) => e.type === 'share').speech, null, 'a share is not spoken while the bucket is nearly empty');
+  await new Promise((r) => setTimeout(r, REFILL_MS * 2 + 300)); // two tokens are back: a share may speak again
 
   events.length = 0;
   s.emit('sim:share', { user: 'C' });

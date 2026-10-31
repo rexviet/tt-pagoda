@@ -12,6 +12,21 @@ const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
 const { buildParts, audioFor, checkVoiceServer } = require('./speech');
 
 const PORT = Number(process.env.PORT) || 3000;
+// A thank-you line takes about 2 s to make and 4 s to say, so a busy room cannot have every gift and share spoken.
+// A token bucket decides which ones get a voice: a short burst, then one line every SPEECH_REFILL_MS. A share only
+// speaks while at least two tokens are left, so gifts always win. The others still show on the overlay, just silently.
+const SPEECH_BURST = 3;
+const SPEECH_REFILL_MS = Number(process.env.SPEECH_REFILL_MS) || 4000;
+let speechTokens = SPEECH_BURST;
+let speechTokensAt = Date.now();
+function takeSpeechToken(kind) {
+  const now = Date.now();
+  speechTokens = Math.min(SPEECH_BURST, speechTokens + (now - speechTokensAt) / SPEECH_REFILL_MS);
+  speechTokensAt = now;
+  if (speechTokens < (kind === 'share' ? 2 : 1)) return false;
+  speechTokens -= 1;
+  return true;
+}
 const STREAK_IDLE_MS = Number(process.env.STREAK_IDLE_MS) || 3000;
 const LEADERBOARD_SIZE = 3;
 
@@ -46,6 +61,7 @@ app.get('/tts/:id.mp3', async (req, res) => {
     const audio = await audioFor(text);
     res.type('audio/mpeg').send(audio);
   } catch (err) {
+    if (err.stale) return res.sendStatus(410); // dropped on purpose (too late to be worth saying)
     console.error('[tts] failed:', err.message);
     res.sendStatus(502);
   }
@@ -78,7 +94,7 @@ function setStatus(next) {
 // Registers the clips of a spoken line (name, then fixed tail) and starts synthesizing them so they are
 // ready when the overlay asks. Returns the clip ids in play order.
 function speechFor(kind, name) {
-  if (!voiceEnabled) return null;
+  if (!voiceEnabled || !takeSpeechToken(kind)) return null;
   const parts = buildParts(kind, name);
   if (!parts) return null;
   return parts.map((text) => {
@@ -330,6 +346,9 @@ module.exports = { server, io, attachTikTokHandlers };
 // A stray error in one handler must not take the whole show down in the middle of a live.
 process.on('uncaughtException', (err) => console.error('[server] uncaught exception:', err));
 process.on('unhandledRejection', (err) => console.error('[server] unhandled rejection:', err));
+
+// Closing the server must also stop the voice worker (its exit hook only runs on a normal exit).
+process.on('SIGTERM', () => process.exit(0));
 
 process.on('SIGINT', async () => {
   await disconnectLive();

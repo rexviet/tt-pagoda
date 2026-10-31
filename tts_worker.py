@@ -102,6 +102,10 @@ def main() -> None:
         try:
             req = json.loads(line)
             req_id = req.get("id")
+            expires = req.get("expires")  # epoch milliseconds; the caller has given up on the line after this
+            if expires and time.time() * 1000 > expires:
+                emit({"type": "result", "id": req_id, "ok": False, "error": "expired"})
+                continue
             text = speakable(req.get("text"))
             if not text:
                 emit({"type": "result", "id": req_id, "ok": False, "error": "empty text"})

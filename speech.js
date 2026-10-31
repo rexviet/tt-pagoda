@@ -28,7 +28,9 @@ const ZERO_VOICE = process.env.ZEROTTS_VOICE || 'maichi';
 const ZERO_PYTHON = process.env.ZEROTTS_PYTHON || path.join(__dirname, 'tts-env', 'bin', 'python');
 const ZERO_MODEL = process.env.ZEROTTS_MODEL_PATH || path.join(__dirname, 'models', 'zerotts');
 const ZERO_LOAD_TIMEOUT_MS = 90000; // loading the model takes a few seconds, longer on a cold disk
-const ZERO_REQUEST_TIMEOUT_MS = 20000;
+const ZERO_REQUEST_TIMEOUT_MS = 8000; // a thank-you that is not ready within this is stale: it is dropped, not read late
+const ZERO_MAX_IN_FLIGHT = 4; // lines waiting on the worker at once; beyond this a new one is refused at once
+const staleLine = (message) => Object.assign(new Error(message), { stale: true });
 const EDGE_VOICE = process.env.TTS_VOICE || 'vi-VN-HoaiMyNeural';
 const CACHE_DIR = path.join(__dirname, '.cache', 'tts');
 const MAX_NAME_LENGTH = 20;
@@ -184,10 +186,14 @@ function startZero() {
     if (msg.type === 'ready') { state.info = msg; state.resolveReady(msg); return; }
     if (msg.type === 'error' && msg.fatal) { fail(new Error(msg.error)); return; }
     const waiting = msg.type === 'result' ? state.pending.get(msg.id) : null;
-    if (!waiting) return;
+    if (!waiting) { // nobody is waiting any more (it timed out): do not leave its audio file behind
+      if (msg.type === 'result' && msg.file) fs.rm(msg.file, () => {});
+      return;
+    }
     state.pending.delete(msg.id);
     clearTimeout(waiting.timer);
-    if (msg.ok) waiting.resolve(msg); else waiting.reject(new Error(msg.error || 'zerotts failed'));
+    if (msg.ok) waiting.resolve(msg);
+    else waiting.reject(msg.error === 'expired' ? staleLine('the line expired in the queue') : new Error(msg.error || 'zerotts failed'));
   });
   readline.createInterface({ input: proc.stderr }).on('line', (line) => { if (line.trim()) console.error(`[zerotts] ${line}`); });
   proc.on('error', (err) => fail(new Error(`cannot start ${ZERO_PYTHON}: ${err.message}`)));
@@ -204,13 +210,18 @@ function withTimeout(promise, ms, what) {
 
 async function synthZero(text) {
   const worker = startZero();
-  await withTimeout(worker.ready, ZERO_LOAD_TIMEOUT_MS, 'loading ZeroTTS');
+  if (worker.pending.size >= ZERO_MAX_IN_FLIGHT) throw staleLine('the voice worker is busy');
+  try {
+    await withTimeout(worker.ready, ZERO_REQUEST_TIMEOUT_MS, 'waiting for ZeroTTS to load');
+  } catch (err) {
+    throw staleLine(err.message);
+  }
   const id = worker.nextId++;
   const answer = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { worker.pending.delete(id); reject(new Error(`ZeroTTS timed out after ${ZERO_REQUEST_TIMEOUT_MS / 1000}s`)); }, ZERO_REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => { worker.pending.delete(id); reject(staleLine(`ZeroTTS was not ready within ${ZERO_REQUEST_TIMEOUT_MS / 1000}s`)); }, ZERO_REQUEST_TIMEOUT_MS);
     worker.pending.set(id, { resolve, reject, timer });
   });
-  worker.proc.stdin.write(`${JSON.stringify({ id, text, voice: ZERO_VOICE })}\n`);
+  worker.proc.stdin.write(`${JSON.stringify({ id, text, voice: ZERO_VOICE, expires: Date.now() + ZERO_REQUEST_TIMEOUT_MS })}\n`);
   const { file } = await answer;
   const mp3 = `${file}.mp3`;
   try {
@@ -245,7 +256,7 @@ function audioFor(text) {
         fs.writeFileSync(file, buf);
         return buf;
       } catch (err) {
-        if (PROVIDER === 'say') throw err;
+        if (PROVIDER === 'say' || err.stale) throw err; // a stale line is skipped: reading it late in another voice helps nobody
         console.error(`[tts] ${PROVIDER} failed, reading the line with the macOS voice:`, err.message);
         return synthSay(text); // not cached: the real voice gets another chance next time
       }
