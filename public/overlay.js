@@ -3,8 +3,7 @@
 (() => {
   const W = 1080, H = 1920;
   const CENTER_X = W / 2;
-  const MAX_FIGURES = 90;
-  const IDLE_LIFETIME_MS = 45000;
+  const MAX_FIGURES = 150; // a safety cap for the renderer; beyond it the oldest idle disciple is retired
 
   // Kneeling mats run up the carpet towards the altar: the bigger the gift, the closer to the Buddha.
   const STATIONS = {
@@ -249,7 +248,7 @@
     c.position.set(x, y);
     c.zIndex = y;
     const fig = {
-      c, body, label, name, userId, busy: false, bornAt: performance.now(), phase: Math.random() * 6, baseY: y,
+      c, body, label, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
       outfit, jitter: 0.92 + Math.random() * 0.16,
     };
     setPose(fig, 'kneelup');
@@ -271,6 +270,7 @@
   function removeFigure(fig) {
     const i = figures.indexOf(fig);
     if (i >= 0) figures.splice(i, 1);
+    releaseSlot(fig);
     tween(fig.c, { alpha: 0 }, 500).then(() => fig.c.destroy({ children: true }));
   }
 
@@ -289,16 +289,31 @@
       }
       f.body.rotation += (tilt - f.body.rotation) * 0.25;
       f.body.y += (hop - f.body.y) * 0.4;
-      if (!f.busy && now - f.bornAt > IDLE_LIFETIME_MS && f.userId && !f.keep) removeFigure(f);
     }
   }
 
-  function carpetSpot() {
-    const left = Math.random() < 0.5;
-    const y = 1500 + Math.random() * 250;
-    const half = carpetHalfAt(y);
-    const x = CENTER_X + (left ? -1 : 1) * half * (0.3 + Math.random() * 0.65);
-    return { x, y };
+  // Waiting places: fixed rows across the hall, filled from the altar end outwards, left and right in turn.
+  // A disciple keeps its place until it is retired; after bringing a gift it walks back to the same place.
+  const SLOT_ROW_START = 1290, SLOT_ROW_STEP = 60, SLOT_ROWS = 10;
+  const SLOT_COLUMNS = [-0.4, 0.4, -0.65, 0.65, -0.9, 0.9]; // as a share of the carpet's half-width at that row
+  const slots = [];
+  for (let r = 0; r < SLOT_ROWS; r++) {
+    const y = SLOT_ROW_START + r * SLOT_ROW_STEP;
+    for (const c of SLOT_COLUMNS) slots.push({ x: CENTER_X + c * carpetHalfAt(y), y, owner: null });
+  }
+
+  function claimSlot(fig) {
+    if (fig.slot) return fig.slot;
+    let slot = slots.find((s) => !s.owner);
+    if (slot) slot.owner = fig;
+    else slot = slots[Math.floor(Math.random() * slots.length)]; // hall is full: stand among the others
+    fig.slot = slot;
+    return slot;
+  }
+
+  function releaseSlot(fig) {
+    if (fig.slot && fig.slot.owner === fig) fig.slot.owner = null;
+    fig.slot = null;
   }
 
   function findOrCreateFigure(name, userId) {
@@ -429,7 +444,7 @@
   // ---- gift choreography ---------------------------------------------------
   async function offer(user, userId, tier) {
     const fig = findOrCreateFigure(user, userId);
-    fig.busy = true; fig.keep = true; fig.fresh = false;
+    fig.busy = true; fig.fresh = false;
     try {
       if (tier === 'huong') {
         const s = STATIONS.huong;
@@ -458,8 +473,8 @@
         await wait(4000);
       }
     } finally {
-      fig.busy = false; fig.keep = false; fig.bornAt = performance.now();
-      const spot = carpetSpot();
+      fig.busy = false;
+      const spot = claimSlot(fig);
       await walkTo(fig, spot.x, spot.y);
     }
   }
@@ -487,8 +502,9 @@
 
   function spawnCrowd(n) {
     for (let i = 0; i < n; i++) {
-      const s = carpetSpot();
-      makeFigure(`Phật tử ${i + 1}`, null, s.x, s.y);
+      const fig = makeFigure(`Phật tử ${i + 1}`, null, CENTER_X, H - 20);
+      const s = claimSlot(fig);
+      fig.c.position.set(s.x, s.y);
     }
   }
 
@@ -504,6 +520,7 @@
   function resetScene() {
     bannerQueue.length = 0;
     figures.splice(0).forEach((f) => f.c.destroy({ children: true }));
+    slots.forEach((slot) => { slot.owner = null; });
     layers.top.removeChildren().forEach((c) => c.destroy({ children: true }));
     layers.fx.removeChildren().forEach((c) => c.destroy({ children: true }));
     particles.length = 0;
@@ -667,7 +684,7 @@
   function welcome(fig) {
     if (!fig.fresh || fig.busy) return;
     fig.fresh = false;
-    const s = carpetSpot();
+    const s = claimSlot(fig);
     walkTo(fig, s.x, s.y).catch(() => {});
   }
 
