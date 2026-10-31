@@ -140,9 +140,26 @@ function attachTikTokHandlers(conn) {
     });
   });
 
-  conn.on(WebcastEvent.SHARE, (data) => {
+  // TikTok reports a share either as a "share" event or as a generic "social" one, depending on the display key it
+  // carries, so both paths end here. Unknown social notices are logged once per key to show what TikTok really sends.
+  const announceShare = (data) => {
     const { name } = userOf(data);
+    console.log(`[tiktok] share from ${name}`);
     io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
+  };
+  const looksLikeShare = (data) => {
+    const text = `${data?.common?.displayText?.key || ''} ${data?.common?.displayText?.defaultPattern || ''}`;
+    return /share|chia s[ẻe]/i.test(text);
+  };
+  const seenSocialKeys = new Set();
+
+  conn.on(WebcastEvent.SHARE, announceShare);
+  conn.on(WebcastEvent.SOCIAL, (data) => {
+    if (looksLikeShare(data)) return announceShare(data);
+    const key = data?.common?.displayText?.key || '(no key)';
+    if (seenSocialKeys.has(key)) return;
+    seenSocialKeys.add(key);
+    console.log(`[tiktok] social notice with display key "${key}" from ${userOf(data).name}; not treated as a share`);
   });
 
   conn.on(WebcastEvent.MEMBER, (data) => {
@@ -258,11 +275,13 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
+if (require.main === module) server.listen(PORT, () => {
   console.log(`Admin:   http://localhost:${PORT}/admin`);
   console.log(`Overlay: http://localhost:${PORT}/overlay  (OBS Browser Source 1080x1920)`);
   checkVoiceServer();
 });
+
+module.exports = { server, io, attachTikTokHandlers };
 
 process.on('SIGINT', async () => {
   await disconnectLive();
