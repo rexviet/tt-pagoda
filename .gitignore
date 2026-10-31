@@ -7,3 +7,4 @@ public/assets/music/*
 # ZeroTTS: its Python environment and the 1 GB model
 tts-env/
 models/
+.DS_Store
