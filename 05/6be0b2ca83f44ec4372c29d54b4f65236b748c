@@ -1,0 +1,42 @@
+public/overlay.js
+  s_56a6e42b43e569::t_26d6e4d416f784 1-463
+scripts/sim-smoke.js
+  s_56a6e42b43e569::t_7558fe448e44be 1-28
+README.md
+  s_56a6e42b43e569::t_95be01438490ce 1-26
+public/admin.js
+  s_56a6e42b43e569::t_ee2cd3d3d9ddc4 1-47
+public/admin.html
+  s_56a6e42b43e569::t_23f2e1dedd850e 1-93
+public/overlay.html
+  s_56a6e42b43e569::t_11a8d68e32a6db 14
+  s_56a6e42b43e569::t_02c744de653432 1-13,15-18
+.gitignore
+  s_56a6e42b43e569::t_c01629605f7522 1
+server.js
+  s_56a6e42b43e569::t_6982221a248b3d 1-4,6-15,17-95,97-102,104-190
+  s_56a6e42b43e569::t_bf51045ed76868 16
+  s_56a6e42b43e569::t_a3e1752a17e4a7 5,96,103
+gift-tiers.js
+  s_56a6e42b43e569::t_5f66227ee414cf 1-17
+package-lock.json
+  s_56a6e42b43e569::t_3acf0b87267620 1-2152
+package.json
+  s_56a6e42b43e569::t_b0897730be2878 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "056be0b2ca83f44ec4372c29d54b4f65236b748c",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
