@@ -332,15 +332,25 @@
     }
   }
 
-  // Waiting places: fixed rows across the hall, filled from the row nearest the mats outwards, left and right in turn.
+  // Waiting places: fixed rows across the hall, filled from the row nearest the mats, middle first, then left and right in turn.
   // A disciple keeps its place until it is retired; after bringing a gift it walks back to the same place.
   // Every waiting place is nearer the camera than every mat, so a disciple always walks UP to pray and back down.
-  const SLOT_ROW_START = Math.max(...Object.values(STATIONS).map((st) => st.y)) + 75, SLOT_ROW_STEP = 60, SLOT_ROWS = 7;
-  const SLOT_COLUMNS = [-0.3, 0.3, -0.5, 0.5, -0.7, 0.7, -0.9, 0.9]; // as a share of the carpet's half-width at that row
+  // Rows are packed shoulder to shoulder across the carpet (no empty aisle): each row fills from the middle outwards,
+  // and every other row is shifted half a step so the crowd does not stand in a rigid grid.
+  const SLOT_ROW_START = Math.max(...Object.values(STATIONS).map((st) => st.y)) + 125; // clear of the lowest mat, which would otherwise hide behind the first row
+  const SLOT_ROW_STEP = 58, SLOT_ROWS = 6;
+  const SLOT_SPACING = 72; // sideways distance between neighbours
+  const SLOT_MAX_REACH = 470; // never stand further than this from the middle of the screen
   const slots = [];
   for (let r = 0; r < SLOT_ROWS; r++) {
     const y = SLOT_ROW_START + r * SLOT_ROW_STEP;
-    for (const c of SLOT_COLUMNS) slots.push({ x: CENTER_X + c * carpetHalfAt(y), y, owner: null });
+    const reach = Math.min(carpetHalfAt(y) * 0.92, SLOT_MAX_REACH);
+    const start = r % 2 ? SLOT_SPACING / 2 : 0;
+    const offsets = start === 0 ? [0] : [];
+    for (let k = start === 0 ? 1 : 0; start + k * SLOT_SPACING <= reach; k++) {
+      offsets.push(start + k * SLOT_SPACING, -(start + k * SLOT_SPACING));
+    }
+    for (const dx of offsets) slots.push({ x: CENTER_X + dx, y, owner: null });
   }
 
   function claimSlot(fig) {
