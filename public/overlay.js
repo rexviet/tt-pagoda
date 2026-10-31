@@ -409,10 +409,11 @@
     fortuneBusy = true;
     while (fortuneQueue.length) {
       const ev = fortuneQueue.shift();
-      showBanner(`${ev.user} đang xin xăm… 🎋`, 1800);
+      // The voice first announces who drew which grade, so everyone in the room knows, then reads the card.
+      if (ev.speech) enqueueSpeech(ev.speech);
+      showBanner(`${ev.user} đã xin được quẻ xăm ${ev.fortune.rank} 🎋`, 2800);
       await wait(1800);
       renderFortune(ev);
-      if (ev.speech) enqueueSpeech(ev.speech);
       fortuneCard.style.opacity = '1';
       fortuneCard.style.transform = 'scale(1)';
       await wait(FORTUNE_CARD_MS);

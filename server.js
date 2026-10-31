@@ -154,7 +154,7 @@ function handleFortune({ userId, name, force = false }) {
   lastFortune.set(userId, now);
   if (lastFortune.size > 500) lastFortune.delete(lastFortune.keys().next().value);
   const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];
-  const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`Thí chủ ${name} vừa gieo được ${fortune.ttsSummary}`]) : null;
+  const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`${name} đã xin được quẻ xăm ${fortune.rank}`, fortune.ttsSummary]) : null;
   io.emit('overlay', { type: 'fortune', user: name, userId, fortune, speech });
   return true;
 }
