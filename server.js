@@ -83,9 +83,19 @@ const DEFAULT_MUSIC_VOLUME = 0.25;
 // Anonymous disciples that stand in the hall so it looks full even with few viewers; real viewers stand among them.
 const crowd = { ambient: Math.min(MAX_AMBIENT_CROWD, Math.max(0, Math.round(Number(process.env.AMBIENT_CROWD ?? DEFAULT_AMBIENT_CROWD)) || 0)) };
 const music = { enabled: true, volume: Math.min(1, Math.max(0, Number(process.env.MUSIC_VOLUME) || DEFAULT_MUSIC_VOLUME)) };
+// The name above a disciple's head, sent to the overlay: font size in px, how long it stays up (seconds; 0 keeps the
+// built-in timings of 2 to 5 s depending on what the disciple is doing) and the opacity of the black box behind it (0 to 1,
+// where 0 is a valid choice: no box).
+const plateOpacityEnv = parseFloat(process.env.NAME_PLATE_OPACITY);
+const nameLabelConfig = {
+  plateOpacity: Number.isFinite(plateOpacityEnv) ? Math.min(1, Math.max(0, plateOpacityEnv)) : 0.78,
+  fontSize: Math.min(48, Math.max(10, Math.round(Number(process.env.NAME_FONT_SIZE)) || 16)),
+  showSeconds: Math.max(0, Number(process.env.NAME_SHOW_SECONDS) || 0),
+};
 let connection = null;
 let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, roomId: null };
 
+// Equal scores rank by who reached that score first, so someone who only catches up never overtakes.
 function leaderboard() {
   return [...scores.entries()]
     .map(([userId, entry]) => ({ userId, name: entry.name, score: entry.score }))
@@ -308,6 +318,7 @@ io.on('connection', (socket) => {
   socket.emit('leaderboard', leaderboard());
   socket.emit('voice', voiceEnabled);
   socket.emit('music', music);
+  socket.emit('label:config', nameLabelConfig); // before anyone is drawn, so the first names already use it
   socket.emit('ambient', crowd.ambient);
 
   socket.on('live:connect', (uniqueId) => {

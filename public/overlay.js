@@ -295,6 +295,9 @@
 
   // ?names=1 keeps every name on screen, to see how a full hall reads. The simulated crowd gets made-up names for it.
   const NAMES_ALWAYS = new URLSearchParams(location.search).get('names') === '1';
+  let nameFontSize = 16; // NAME_FONT_SIZE in the server's .env
+  let namePlateOpacity = 0.78; // NAME_PLATE_OPACITY in the server's .env: the black box behind a name
+  let nameShowMs = 0; // NAME_SHOW_SECONDS in the server's .env; 0 = each moment keeps its own time (see showLabel)
   const FAKE_NAMES = ['Minh Anh', 'Thanh Dat', 'Ngọc Huyền', 'Quá Nguyễn', 'din', 'Little Duck Trades', 'Hoàng Long', 'Bảo Châu', 'Nguyễn Thị Thanh Hương',
     'An Nhiên', 'Tâm An', 'Lan Phương', 'Đức Anh', 'Thu Hà', 'Phúc', 'Mai', 'Gia Bảo', 'Cô Ba Sài Gòn', 'Trần Văn Hiếu', 'Kim Ngân',
     'Hạnh Phúc', 'Quang Vinh', 'Diệu Linh', 'Tuấn Kiệt', 'Hồng Nhung', 'Bình An', 'Thiện Tâm', 'Như Ý', 'Khánh Vy', 'Sen Vàng'];
@@ -309,7 +312,7 @@
     const outfit = pool[Math.floor(Math.random() * pool.length)];
     const body = new PIXI.Sprite(TEX[outfit].kneel);
     body.anchor.set(0.5, 1);
-    const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
+    const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: nameFontSize, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
     label.visible = NAMES_ALWAYS; // names stay hidden in the crowd; see showLabel
     // a black rounded plate behind the name so it reads against any background; it follows the label (see stepIdle)
@@ -331,10 +334,20 @@
   }
 
   // The crowd is too dense for every name to be readable, so a name only shows while its owner is doing something.
+  // ms = 0 means the name stays (a whole prayer, a cushion). A timed name uses NAME_SHOW_SECONDS when it is set.
   function showLabel(fig, ms) {
     fig.label.visible = true;
     clearTimeout(fig.labelTimer);
-    if (ms > 0 && !NAMES_ALWAYS) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy && !fig.vipRank) fig.label.visible = false; }, ms);
+    const hideAfter = ms > 0 && nameShowMs > 0 ? nameShowMs : ms;
+    if (hideAfter > 0 && !NAMES_ALWAYS) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy && !fig.vipRank) fig.label.visible = false; }, hideAfter);
+  }
+
+  function setLabelConfig(cfg) {
+    nameFontSize = Math.min(48, Math.max(10, Math.round(Number(cfg && cfg.fontSize)) || 16));
+    nameShowMs = Math.max(0, Number(cfg && cfg.showSeconds) || 0) * 1000;
+    const op = Number(cfg && cfg.plateOpacity);
+    namePlateOpacity = Number.isFinite(op) ? Math.min(1, Math.max(0, op)) : 0.78;
+    figures.forEach((f) => { f.label.style.fontSize = nameFontSize; f.plateText = null; }); // the plate behind the name is redrawn at the new width
   }
 
   function trimFigures() {
@@ -360,7 +373,7 @@
     if (f.plateText !== f.label.text) { // redraw only when the name changed
       f.plateText = f.label.text;
       const w = f.label.width + LABEL_PAD_X * 2, h = f.label.height + LABEL_PAD_Y * 2;
-      plate.clear().beginFill(0x000000, 0.78).drawRoundedRect(-w / 2, -h + LABEL_PAD_Y, w, h, LABEL_RADIUS).endFill();
+      plate.clear().beginFill(0x000000, namePlateOpacity).drawRoundedRect(-w / 2, -h + LABEL_PAD_Y, w, h, LABEL_RADIUS).endFill();
     }
     plate.y = f.label.y;
   }
@@ -509,7 +522,11 @@
     real.filter((f) => !f.vipRank).sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, excess).forEach((f) => { f.leaving = true; });
   }
 
-  window.__crowd = () => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
+  window.__names = () => figures.filter(isReal).map((f) => { // debug handle for tests
+    const drawn = f.labelBg.geometry.graphicsData; // what the plate is really filled with
+    return { user: f.name, visible: f.label.visible, size: f.label.style.fontSize, plateAlpha: drawn.length ? drawn[0].fillStyle.alpha : null };
+  });
+  window.__crowd =() => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
 
   setInterval(() => {
     for (const f of figures.slice()) {
@@ -1200,3 +1217,4 @@
     socket.on('ambient', setAmbientCrowd);
   });
 })();
+    socket.on('label:config', setLabelConfig);

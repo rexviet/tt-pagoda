@@ -54,6 +54,9 @@ cp .env.example .env
 | `AMBIENT_CROWD` | số Phật tử vô danh đứng sẵn (0 đến 350) | 50 |
 | `COLOR_OUTFITS` | `0` = ai cũng mặc áo xám, không có áo hồng (top 6) và áo nâu (đám đông) | 1 |
 | `MUSIC_VOLUME` | âm lượng nhạc nền (0 đến 1) | 0.25 |
+| `NAME_FONT_SIZE` | cỡ chữ của tên trên đầu nhân vật, đơn vị px (10 đến 48) | 16 |
+| `NAME_SHOW_SECONDS` | tên trên đầu nhân vật hiện bao nhiêu giây khi có người vào, chat hoặc vừa lạy xong; `0` = giữ thời gian có sẵn (2 đến 5 giây tuỳ lúc). Tên của người đang lạy và của top 6 trên đệm luôn hiện | 0 |
+| `NAME_PLATE_OPACITY` | độ đậm của hộp đen phía sau tên nhân vật, từ `0` (không có hộp) đến `1` (đen đặc) | 0.78 |
 | `SPEECH_REFILL_MS` | cứ bao lâu được thêm một câu đọc khi phòng đông | 4000 |
 | `STREAK_IDLE_MS` | quà bấm liên tục được chốt sau khi im lặng bao lâu | 3000 |
 
