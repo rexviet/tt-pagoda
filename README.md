@@ -81,13 +81,33 @@ tts-env/bin/python -c "from huggingface_hub import snapshot_download as d; d('ze
 
 Rồi đặt trong `.env`: `TTS_PROVIDER=zerotts`. Có 8 giọng sẵn: `maichi`, `baotrang`, `giahuy`, `hamy`, `huuduc`, `kimoanh`, `quangminh`, `tiendat`; đổi bằng `ZEROTTS_VOICE`.
 
-**Giọng riêng của bạn:** ZeroTTS không tự tạo giọng từ file thu. Tải đoạn thu mẫu (3 đến 30 giây) lên https://platform.zeroweight.ai/audio để lấy một file zip (đoạn thu sẽ được tải lên dịch vụ bên thứ ba, chỉ dùng giọng của chính bạn hoặc giọng bạn được phép dùng). Cài một lần:
+#### Dùng giọng riêng (file zip) với ZeroTTS: từng bước
 
-```bash
-tts-env/bin/python -c "from zerotts import install_voice_zip; print(install_voice_zip('/duong/dan/giong.zip'))"
-```
+ZeroTTS không tự tạo giọng từ file thu âm; giọng riêng được tạo trên nền tảng của họ rồi tải về dưới dạng file zip.
 
-Rồi đặt `ZEROTTS_VOICE` bằng tên hiển thị hoặc mã giọng (không phân biệt hoa thường).
+1. **Lấy file zip.** Vào https://platform.zeroweight.ai/audio, tải lên đoạn thu mẫu (3 đến 30 giây, tiếng Việt), rồi tải về file zip của giọng (tên dạng `ten-giong-xxxxxxxx.zip`). Đoạn thu được tải lên dịch vụ bên thứ ba, nên chỉ dùng giọng của chính bạn hoặc giọng bạn được phép dùng.
+2. **Cài giọng vào máy (làm một lần).** Chạy trong thư mục dự án, thay đường dẫn bằng file zip của bạn:
+   ```bash
+   tts-env/bin/python -c "from zerotts import install_voice_zip; print(install_voice_zip('/duong/dan/ten-giong.zip'))"
+   ```
+   Kết quả in ra dạng `{'sf1hi6y17fPu8tAg8FaJ': PosixPath('.../.zerotts/voices/sf1hi6y17fPu8tAg8FaJ')}`: chuỗi trước dấu hai chấm là **mã giọng**. Giọng được lưu trong `~/.zerotts/voices`, nên các lần chạy sau không cần cài lại và không cần giữ file zip. Cài lại một zip cùng mã thì giọng cũ bị thay bằng bản mới.
+3. **Xem lại các giọng đã cài** (nếu quên mã):
+   ```bash
+   tts-env/bin/python -c "from zerotts import installed_voices; print(list(installed_voices()))"
+   ```
+   Tên hiển thị bạn đặt trên nền tảng (ví dụ `phat-phap`) nằm trong file `meta.json` trong thư mục của giọng đó.
+4. **Chọn giọng trong `.env`.** Đặt một trong hai dòng, dùng mã giọng hoặc tên hiển thị, không phân biệt hoa thường:
+   ```
+   TTS_PROVIDER=zerotts
+   ZEROTTS_VOICE=phat-phap
+   ```
+5. **Chạy server:** `npm start`. Server nạp model và giọng khi khởi động. Dòng log đầu phải có tên giọng của bạn, ví dụ:
+   ```
+   [tts] voice: zerotts "sf1hi6y17fPu8tAg8FaJ" ready in 3.2s (9 voices, 48000 Hz)
+   ```
+   `9 voices` là 8 giọng có sẵn cộng giọng của bạn. Nếu `ZEROTTS_VOICE` sai tên, log báo `voice "..." not found, using "..."` kèm danh sách giọng có sẵn, và server dùng giọng đầu tiên trong danh sách.
+6. **Nghe thử một câu** (không cần mở overlay): `node scripts/tts-check.js`. File âm thanh nằm ở `.cache/sample/line-0.mp3`.
+7. **Đổi giọng sau này:** sửa `ZEROTTS_VOICE` rồi restart server. Câu đã đọc được lưu cache theo từng giọng nên đổi giọng không phát lại giọng cũ.
 
 ### Cách C: server VoiceStudio/OmniVoice
 Đặt `TTS_PROVIDER=omnivoice` cùng `OMNIVOICE_URL`, `OMNIVOICE_VOICE`, `OMNIVOICE_PIN`. Tốc độ chỉnh bằng `OMNIVOICE_SPEED` (khuyên không quá 1.25).
