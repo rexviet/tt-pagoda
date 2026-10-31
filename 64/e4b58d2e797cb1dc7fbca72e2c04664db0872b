@@ -1,0 +1,27 @@
+speech.js
+  s_56a6e42b43e569::t_ba404a35e0e05e 2-11,19-22,26-27,53-55,64,69-83,121-138,141-150,153-155,157-161,165-212,214,217
+public/overlay.js
+  s_56a6e42b43e569::t_9e93311b9d1c90 514-517,537-544,546-566,568,570-576
+scripts/sim-smoke.js
+  s_56a6e42b43e569::t_343690b0506bc5 15-24,30,59-60
+scripts/tts-check.js
+  s_56a6e42b43e569::t_b7e341ad1f1f63 5,10-21
+server.js
+  s_56a6e42b43e569::t_f0677e67e0a9d6 7,56-57,60-69,229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64e4b58d2e797cb1dc7fbca72e2c04664db0872b",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
