@@ -14,7 +14,7 @@ const { FORTUNE_DECK } = require('./fortunes');
 
 const PORT = Number(process.env.PORT) || 3000;
 // A thank-you line takes about 2 s to make and 4 s to say, so a busy room cannot have every gift and share spoken.
-// A token bucket decides which ones get a voice: a short burst, then one line every SPEECH_REFILL_MS. A share only
+// A token bucket decides which ones get a voice: a short burst, then one line every SPEECH_REFILL_MS. A share or a fortune only
 // speaks while at least two tokens are left, so gifts always win. The others still show on the overlay, just silently.
 const SPEECH_BURST = 3;
 const SPEECH_REFILL_MS = Number(process.env.SPEECH_REFILL_MS) || 4000;
@@ -24,7 +24,7 @@ function takeSpeechToken(kind) {
   const now = Date.now();
   speechTokens = Math.min(SPEECH_BURST, speechTokens + (now - speechTokensAt) / SPEECH_REFILL_MS);
   speechTokensAt = now;
-  if (speechTokens < (kind === 'share' ? 2 : 1)) return false;
+  if (speechTokens < (kind === 'share' || kind === 'fortune' ? 2 : 1)) return false;
   speechTokens -= 1;
   return true;
 }
@@ -143,19 +143,14 @@ function handleGift({ userId, name, coins, giftName, count }) {
     tier: tier ? tier.id : null,
     speech: tier ? speechFor(tier.id, name) : null,
   });
+  if (coins >= FORTUNE_MIN_COINS) handleFortune({ userId, name });
 }
 
-// A viewer who asks for a quẻ in the chat draws a fortune stick: the overlay shakes the tube, shows the card and the
-// voice reads it. One draw per viewer per FORTUNE_COOLDOWN_MS so the chat cannot be flooded with cards.
-const FORTUNE_WORDS = ['xin xăm', 'xin xam', 'gieo quẻ', 'gieo que', 'rút quẻ', 'rut que', 'quẻ'];
-const FORTUNE_COOLDOWN_MS = Number(process.env.FORTUNE_COOLDOWN_MS) || 60000;
-const lastFortune = new Map(); // userId -> time of the last draw
+// A gift worth at least FORTUNE_MIN_COINS (counted like the gift tiers: the total of one gift event) also draws a fortune
+// stick: the overlay shows the card, the voice names the grade. Chatting a keyword does not: the draw has to be paid for.
+const FORTUNE_MIN_COINS = Number(process.env.FORTUNE_MIN_COINS) || 5;
 
-function handleFortune({ userId, name, force = false }) {
-  const now = Date.now();
-  if (!force && now - (lastFortune.get(userId) || 0) < FORTUNE_COOLDOWN_MS) return false;
-  lastFortune.set(userId, now);
-  if (lastFortune.size > 500) lastFortune.delete(lastFortune.keys().next().value);
+function handleFortune({ userId, name }) {
   const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];
   const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`${name} đã xin được quẻ xăm ${fortune.rank}, ${fortune.title.split(/\s+—\s+/)[0]}`]) : null;
   io.emit('overlay', { type: 'fortune', user: name, userId, fortune, speech });
@@ -165,8 +160,6 @@ function handleFortune({ userId, name, force = false }) {
 function handleChat({ userId, name, text }) {
   if (!text) return;
   io.emit('overlay', { type: 'chat', user: name, userId, text: String(text).slice(0, 120) });
-  const lower = String(text).toLowerCase();
-  if (FORTUNE_WORDS.some((w) => lower.includes(w))) handleFortune({ userId, name });
 }
 
 // ---- TikTok connection -----------------------------------------------------
@@ -353,7 +346,7 @@ io.on('connection', (socket) => {
 
   socket.on('sim:fortune', ({ user }) => {
     const name = String(user || 'Khách').slice(0, 30);
-    handleFortune({ userId: `sim:${name}`, name, force: true });
+    handleFortune({ userId: `sim:${name}`, name });
   });
 
   socket.on('sim:join', ({ user }) => {

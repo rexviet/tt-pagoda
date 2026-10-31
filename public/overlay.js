@@ -393,7 +393,7 @@
   // ---- fortune sticks (xin xăm / gieo quẻ) ----------------------------------------------------------
   // A viewer who asks for a quẻ in the chat gets a card with the grade, the poem and its meaning, while the voice reads it.
   // Cards take turns (at most three wait); the card is an HTML layer inside the stage so it scales with the frame.
-  const FORTUNE_CARD_MS = 5000, FORTUNE_MAX_WAITING = 3;
+  const FORTUNE_CARD_MS = 5000, FORTUNE_MAX_WAITING = 5;
   const fortuneQueue = [];
   let fortuneBusy = false;
   const fortuneCard = document.createElement('div');

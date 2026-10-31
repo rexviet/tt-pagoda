@@ -37,12 +37,13 @@ server.listen(0, async () => {
   assert.deepStrictEqual(out.map((e) => [e.type, e.user]), [['join', 'Vi Khach']], 'a viewer joining reaches the overlay');
 
   out = await fire('chat', { user: user('Nguoi Xin'), comment: 'con xin gieo quẻ đầu năm ạ' });
-  assert.deepStrictEqual(out.map((e) => e.type), ['chat', 'fortune'], 'asking for a quẻ in the chat draws a fortune');
+  assert.deepStrictEqual(out.map((e) => e.type), ['chat'], 'asking for a quẻ in the chat is free talk: it draws nothing');
+  out = await fire('gift', { user: user('Nguoi Xin'), giftId: '1', groupId: 'f1', repeatCount: 1, repeatEnd: 0, gift: { type: 2, diamondCount: 5, name: 'Quà' } });
+  assert.deepStrictEqual(out.map((e) => e.type), ['gift', 'fortune'], 'a 5-coin gift also draws a fortune');
   assert.ok(out[1].fortune && out[1].fortune.poem && out[1].fortune.rank, 'the fortune card carries the grade and the poem');
-  out = await fire('chat', { user: user('Nguoi Xin'), comment: 'xin xăm nữa' });
-  assert.deepStrictEqual(out.map((e) => e.type), ['chat'], 'a second draw within the cooldown is ignored');
-  out = await fire('chat', { user: user('Nguoi Khac'), comment: 'a di đà phật' });
-  assert.deepStrictEqual(out.map((e) => e.type), ['chat'], 'an ordinary chat draws nothing');
+  assert.strictEqual(out[1].user, 'Nguoi Xin', 'the fortune belongs to the giver');
+  out = await fire('gift', { user: user('Nguoi Re'), giftId: '2', groupId: 'f2', repeatCount: 1, repeatEnd: 0, gift: { type: 2, diamondCount: 1, name: 'Quà' } });
+  assert.deepStrictEqual(out.map((e) => e.type), ['gift'], 'a 1-coin gift is too small for a fortune');
 
   out = await fire('member', { user: user('Vi Khach'), action: 2 });
   assert.deepStrictEqual(out.map((e) => e.type), ['leave'], 'a viewer leaving reaches the overlay');

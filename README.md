@@ -52,6 +52,7 @@ cp .env.example .env
 | `ZEROTTS_VOICE` | tên hoặc mã giọng ZeroTTS | `maichi` |
 | `OMNIVOICE_URL`, `OMNIVOICE_VOICE`, `OMNIVOICE_PIN` | server VoiceStudio (nếu dùng) | xem file mẫu |
 | `AMBIENT_CROWD` | số Phật tử vô danh đứng sẵn (0 đến 350) | 50 |
+| `FORTUNE_MIN_COINS` | số xu tối thiểu của một lần tặng để được rút quẻ | 5 |
 | `COLOR_OUTFITS` | `0` = ai cũng mặc áo xám, không có áo hồng (top 6) và áo nâu (đám đông) | 1 |
 | `MUSIC_VOLUME` | âm lượng nhạc nền (0 đến 1) | 0.25 |
 | `SPEECH_REFILL_MS` | cứ bao lâu được thêm một câu đọc khi phòng đông | 4000 |
@@ -176,7 +177,7 @@ Mỗi lần restart server phải bấm **Kết nối Live** lại. Mỗi quà n
 
 Trước khi lên sóng thật, bấm **Làm Mới Phiên Live** để xóa bảng xếp hạng thử.
 
-**Gieo quẻ:** khi người xem chat có chữ `xin xăm`, `gieo quẻ`, `rút quẻ` hoặc `quẻ`, overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây, và giọng đọc nói tên người gieo cùng hạng và tên quẻ. Mỗi người gieo một lần mỗi 60 giây (đổi bằng `FORTUNE_COOLDOWN_MS` trong `.env`); tối đa 3 tờ chờ lượt. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
+**Gieo quẻ:** ai tặng quà từ 5 xu trở lên (tính tổng một lần tặng, giống các mốc quà) được rút thêm một quẻ. Chat chữ `xin xăm` không còn rút quẻ. Overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây, giọng đọc nói tên người gieo cùng hạng và vế đầu tên quẻ; tối đa 5 tờ chờ lượt. Đổi mức giá bằng `FORTUNE_MIN_COINS` trong `.env`. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử, và các nút giả lập quà từ 5 xu trở lên cũng rút quẻ.
 
 **Người rời phòng:** khi ai đó thoát, nhân vật của họ biến mất. Nếu TikTok không báo ai vừa thoát (thường là vậy), overlay dựa vào số người xem của phòng: khi số nhân vật nhiều hơn số người xem, những người im lặng lâu nhất bị coi là đã rời. Top 6 trên đệm và người đang chờ lạy được giữ lại; ai quay lại hoặc tặng quà sẽ có nhân vật mới. Cách này là ước lượng, chưa được thử trên phòng live thật.
 
