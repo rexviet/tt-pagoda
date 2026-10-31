@@ -62,7 +62,39 @@
   });
 
   // ---- scene (placeholder art) --------------------------------------------
+  // Background art is a 1212x1298 image: scaled to cover 1080x1920 and centre-cropped.
+  // Carpet in the scaled image: vanishing point y~1161, centre x=540, half-width ~77 -> ~784 at the bottom.
+  const CARPET_TOP_Y = 1161, CARPET_TOP_HALF = 77, CARPET_BOTTOM_HALF = 784;
+  const carpetHalfAt = (y) => CARPET_TOP_HALF + ((y - CARPET_TOP_Y) / (H - CARPET_TOP_Y)) * (CARPET_BOTTOM_HALF - CARPET_TOP_HALF);
+
   function drawScene() {
+    loadBackground().then((ok) => { if (!ok) drawVectorScene(); addGlow(); });
+    drawStations();
+  }
+
+  async function loadBackground() {
+    try {
+      const tex = await PIXI.Assets.load('/assets/background.png');
+      const sp = new PIXI.Sprite(tex);
+      const s = Math.max(W / tex.width, H / tex.height);
+      sp.scale.set(s);
+      sp.position.set((W - tex.width * s) / 2, (H - tex.height * s) / 2);
+      layers.bg.addChild(sp);
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function addGlow() {
+    const glow = new PIXI.Graphics();
+    for (let r = 300; r > 0; r -= 30) glow.beginFill(0xffc83a, 0.05).drawCircle(0, 0, r).endFill();
+    glow.position.set(CENTER_X, 600);
+    glow.blendMode = PIXI.BLEND_MODES.ADD;
+    layers.bg.addChild(glow);
+    app.ticker.add(() => { glow.alpha = 0.7 + Math.sin(performance.now() / 700) * 0.3; });
+    window.__buddhaGlow = glow;
+  }
+
+  function drawVectorScene() {
     const g = new PIXI.Graphics();
     // hall walls
     g.beginFill(0x2a1608).drawRect(0, 0, W, H).endFill();
@@ -83,48 +115,27 @@
       .moveTo(CENTER_X + 110, 780).lineTo(CENTER_X + 250, H);
     layers.bg.addChild(g);
 
-    // Buddha glow
-    const glow = new PIXI.Graphics();
-    for (let r = 300; r > 0; r -= 30) glow.beginFill(0xffc83a, 0.06).drawCircle(0, 0, r).endFill();
-    glow.position.set(CENTER_X, 560);
-    layers.bg.addChild(glow);
     const buddha = new PIXI.Graphics();
     buddha.beginFill(0xe8b832).drawEllipse(0, 60, 90, 120).endFill();
     buddha.beginFill(0xf6d56a).drawCircle(0, -90, 55).endFill();
     buddha.beginFill(0xb8872a).drawRect(-130, 150, 260, 30).endFill();
     buddha.position.set(CENTER_X, 560);
     layers.bg.addChild(buddha);
-    app.ticker.add(() => { glow.alpha = 0.8 + Math.sin(performance.now() / 700) * 0.2; });
-    window.__buddhaGlow = glow;
+  }
 
-    // stations (boards under the three offering spots)
+  function drawStations() {
     for (const s of Object.values(STATIONS)) {
+      const mat = new PIXI.Graphics().beginFill(s === STATIONS.tambao ? 0xb32020 : 0x777777, 0.9).drawRoundedRect(-60, 20, 120, 34, 8).endFill();
+      mat.position.set(s.x, s.y);
       const box = new PIXI.Graphics();
-      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.9).drawRoundedRect(-85, 60, 170, 70, 8).endFill();
-      layers.floor.addChild(box);
+      box.lineStyle(3, 0xd9a93a).beginFill(0x4a1a0a, 0.85).drawRoundedRect(-85, 60, 170, 70, 8).endFill();
       box.position.set(s.x, s.y);
       const a = new PIXI.Text(s.label, { fontFamily: 'Arial', fontSize: 24, fontWeight: '700', fill: 0xffe9a8 });
       const b = new PIXI.Text(s.sub, { fontFamily: 'Arial', fontSize: 18, fill: 0xf4cf7a });
       a.anchor.set(0.5); b.anchor.set(0.5);
       a.position.set(s.x, s.y + 85); b.position.set(s.x, s.y + 111);
-      layers.floor.addChild(a, b);
-      // kneeling mat
-      const mat = new PIXI.Graphics().beginFill(s === STATIONS.tambao ? 0xb32020 : 0x777777).drawRoundedRect(-60, 20, 120, 34, 8).endFill();
-      mat.position.set(s.x, s.y);
-      layers.floor.addChild(mat);
+      layers.floor.addChild(mat, box, a, b);
     }
-    loadOptionalBackground();
-  }
-
-  async function loadOptionalBackground() {
-    try {
-      const head = await fetch('/assets/background.png', { method: 'HEAD' });
-      if (!head.ok) return;
-      const tex = await PIXI.Assets.load('/assets/background.png');
-      const sp = new PIXI.Sprite(tex);
-      sp.width = W; sp.height = H;
-      layers.bg.addChildAt(sp, 0);
-    } catch (_) { /* placeholder art stays */ }
   }
 
   // ---- particles -----------------------------------------------------------
@@ -154,18 +165,23 @@
 
   // ---- figures (disciples) -------------------------------------------------
   const figures = [];
-  const ROBES = [0xf2efe6, 0xe9e4d6, 0xdcd6c6, 0xcfc9b8];
+  const ROBES = [0x7a4a3a, 0x8c2f4a, 0x5a5560, 0xb0607a, 0x6a3a2a, 0x4a4a58];
 
   function makeFigure(name, userId, x, y) {
     const c = new PIXI.Container();
-    const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 6, 30, 9).endFill();
+    const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 4, 26, 8).endFill();
     const body = new PIXI.Graphics();
-    body.beginFill(ROBES[Math.floor(Math.random() * ROBES.length)]).drawPolygon([-24, 0, 24, 0, 16, -78, -16, -78]).endFill();
-    body.beginFill(0xe6b98f).drawCircle(0, -92, 17).endFill();
-    body.beginFill(0x222222).drawEllipse(0, -102, 17, 9).endFill();
+    const robe = ROBES[Math.floor(Math.random() * ROBES.length)];
+    // chibi: small seated robe, oversized head
+    body.beginFill(robe).drawRoundedRect(-22, -44, 44, 46, 14).endFill();
+    body.beginFill(0xd9a93a).drawRect(-22, -30, 44, 5).endFill();
+    body.beginFill(0xe9c29a).drawCircle(0, -66, 24).endFill();
+    body.beginFill(0x2a1a14).drawEllipse(0, -80, 22, 11).endFill();
+    body.beginFill(0x222222).drawCircle(-8, -64, 2.6).drawCircle(8, -64, 2.6).endFill();
+    body.beginFill(0xd98a7a, 0.7).drawCircle(-14, -58, 4).drawCircle(14, -58, 4).endFill();
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 15, fill: 0xffffff, stroke: 0x000000, strokeThickness: 3 });
     label.anchor.set(0.5, 1);
-    label.y = -118;
+    label.y = -96;
     c.addChild(shadow, body, label);
     c.position.set(x, y);
     c.zIndex = y;
@@ -202,16 +218,16 @@
 
   function carpetSpot() {
     const left = Math.random() < 0.5;
-    const y = 900 + Math.random() * 520;
-    const half = 110 + ((y - 780) / (H - 780)) * 140; // carpet half-width at this depth
-    const x = CENTER_X + (left ? -1 : 1) * (half + 50 + Math.random() * 110);
+    const y = 1300 + Math.random() * 480;
+    const half = carpetHalfAt(y);
+    const x = CENTER_X + (left ? -1 : 1) * half * (0.35 + Math.random() * 0.5);
     return { x, y };
   }
 
   function findOrCreateFigure(name, userId) {
     let fig = figures.find((f) => f.userId === userId);
     if (fig) return fig;
-    return makeFigure(name, userId, CENTER_X + (Math.random() - 0.5) * 180, 800);
+    return makeFigure(name, userId, CENTER_X + (Math.random() - 0.5) * 120, CARPET_TOP_Y + 20);
   }
 
   async function walkTo(fig, x, y, speed = 260) {
@@ -245,7 +261,7 @@
   const bannerText = new PIXI.Text('', { fontFamily: 'Arial', fontSize: 28, fontWeight: '700', fill: 0xffe9a8, align: 'center', wordWrap: true, wordWrapWidth: 860 });
   bannerText.anchor.set(0.5);
   banner.addChild(bannerBg, bannerText);
-  banner.position.set(CENTER_X, 520);
+  banner.position.set(CENTER_X, 250);
   banner.alpha = 0;
   layers.hud.addChild(banner);
 
@@ -278,14 +294,14 @@
     const bg = new PIXI.Graphics().lineStyle(2, 0x999999).beginFill(0xffffff, 0.96).drawRoundedRect(-w / 2, -h / 2, w, h, 12).endFill();
     bg.beginFill(0xffffff, 0.96).drawPolygon([-8, h / 2 - 1, 8, h / 2 - 1, 0, h / 2 + 12]).endFill();
     bubble.addChild(bg, t);
-    bubble.position.set(fig.c.x, fig.c.y - 150 - h / 2);
+    bubble.position.set(fig.c.x, fig.c.y - 120 - h / 2);
     bubble.zIndex = 99999;
     layers.top.addChild(bubble);
     fig.bubble = bubble;
     const follow = () => {
       if (bubble.destroyed) return app.ticker.remove(follow);
       bubble.x = fig.c.x;
-      bubble.y = fig.c.y - 150 - h / 2;
+      bubble.y = fig.c.y - 120 - h / 2;
     };
     app.ticker.add(follow);
     setTimeout(() => { if (!bubble.destroyed) tween(bubble, { alpha: 0 }, 400).then(() => bubble.destroy({ children: true })); }, 5000);
@@ -293,7 +309,7 @@
 
   // ---- leaderboard ---------------------------------------------------------
   const board = new PIXI.Container();
-  board.position.set(W - 270, 300);
+  board.position.set(W - 270, 330);
   layers.hud.addChild(board);
   const boardRows = [];
   function drawBoard(rows) {
@@ -439,7 +455,7 @@
       case 'chat': {
         const fig = findOrCreateFigure(ev.user, ev.userId);
         showBubble(fig, ev.text);
-        if (!fig.busy && fig.c.y < 900) {
+        if (!fig.busy && fig.c.y < 1250) {
           const s = carpetSpot();
           walkTo(fig, s.x, s.y);
         }
