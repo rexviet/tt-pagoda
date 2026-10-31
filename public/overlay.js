@@ -246,13 +246,37 @@
     if (!Object.keys(TEX).length) throw new Error('no disciple sprites found in /assets/disciples');
   }
 
+  // On-screen height of one frame. A cast cut at one scale is drawn at its image height times its scale, except that the
+  // frames of the bow are never drawn taller than the kneeling frame and at most BOW_MAX_WIDER times as wide. The pink and
+  // brown bow frames were drawn much bulkier than their slim kneel (up to 17% taller and 49% wider for pink), so the
+  // disciple visibly swelled the moment it bowed; the grey cast, whose bow and kneel match, is unaffected.
+  const BOW_MAX_WIDER = 1.15; // a bow may spread its arms a little
+  function drawHeight(outfit, pose, tex, real) {
+    if (!PIXEL_SCALE[outfit]) return POSE_HEIGHT[real ? baseOf(pose) : 'kneel'];
+    const k = PIXEL_SCALE[outfit];
+    let h = tex.height * k;
+    const kneeling = TEX[outfit].kneelup || TEX[outfit].kneel;
+    if (/^bow/.test(pose) && kneeling) {
+      h = Math.min(h, kneeling.height * k);
+      const maxW = kneeling.width * k * BOW_MAX_WIDER;
+      if (tex.width / tex.height * h > maxW) h = maxW * tex.height / tex.width;
+    }
+    return h;
+  }
+  window.__poseSize = (outfit, pose) => { // debug handle for tests: on-screen size of one frame
+    const tex = TEX[outfit] && TEX[outfit][pose];
+    if (!tex) return null;
+    const h = drawHeight(outfit, pose, tex, true);
+    return { h, w: h * tex.width / tex.height };
+  };
+
   function setPose(fig, pose) {
     const set = TEX[fig.outfit];
     const base = baseOf(pose);
     // Missing pose: reuse the kneel sprite that faces the same way (back view for *up poses).
     const real = !!(set[pose] || set[base]);
     const tex = set[pose] || set[base] || (pose.endsWith('up') && set.kneelup) || set.kneel;
-    const h = PIXEL_SCALE[fig.outfit] ? tex.height * PIXEL_SCALE[fig.outfit] : POSE_HEIGHT[real ? base : 'kneel'];
+    const h = drawHeight(fig.outfit, pose, tex, real);
     const sx = h / tex.height;
     const squash = !real && base === 'bow';
     fig.pose = pose;
