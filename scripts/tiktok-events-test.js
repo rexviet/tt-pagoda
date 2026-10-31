@@ -44,7 +44,7 @@ server.listen(0, async () => {
 
   // gifts: a one-off gift counts at once; a streak counts when it ends, or when it has gone quiet
   const gift = (userName, groupId, repeatCount, repeatEnd, giftType, diamondCount) => ({
-    user: user(userName), giftId: 5655, groupId, repeatCount, repeatEnd, giftDetails: { giftType, diamondCount, giftName: 'Hoa hồng' },
+    user: user(userName), giftId: '5655', groupId, repeatCount, repeatEnd: repeatEnd ? 1 : 0, gift: { type: giftType, diamondCount, name: 'Hoa hồng' },
   });
   const summary = (events) => events.filter((e) => e.type === 'gift').map((e) => [e.coins, e.tier]);
   const settleWait = () => wait(700); // longer than STREAK_IDLE_MS, so any pending streak timer has fired
@@ -73,7 +73,10 @@ server.listen(0, async () => {
   out = await fire('gift', gift('Tiep Tuc', 'g3', 4, true, 1, 1));
   assert.deepStrictEqual(summary(out), [[3, 'huong']], 'a streak that carries on after a pause only adds the new roses');
 
-  out = await fire('gift', { user: user('Khong Gia'), giftId: 1, groupId: 'g4', repeatCount: 1, repeatEnd: true, giftDetails: { giftType: 2, giftName: 'La' } });
+  out = await fire('gift', { user: user('Ban Cu'), giftId: 1, groupId: 'g5', repeatCount: 1, repeatEnd: true, giftDetails: { giftType: 2, diamondCount: 10, giftName: 'Cu' } });
+  assert.deepStrictEqual(summary(out), [[10, 'tambao']], 'the older giftDetails shape still works');
+
+  out = await fire('gift', { user: user('Khong Gia'), giftId: 1, groupId: 'g4', repeatCount: 1, repeatEnd: true, gift: { type: 2, name: 'La' } });
   assert.deepStrictEqual(out, [], 'a gift without a coin value is ignored, not crashed on');
 
   console.log('OK: share (both paths), join, subscription ignored, chat, gift streaks');

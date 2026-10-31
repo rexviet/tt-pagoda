@@ -145,14 +145,16 @@ function attachTikTokHandlers(conn) {
   };
 
   conn.on(WebcastEvent.GIFT, (data) => {
-    const details = data.giftDetails || {};
+    // Gift info is `data.gift` in the v3 message schema (`giftDetails` in the older one, kept as a fallback).
+    const info = data.gift || data.giftDetails || {};
+    const giftType = info.type ?? info.giftType;
     const count = Math.max(1, Number(data.repeatCount) || 1);
     const ended = !!data.repeatEnd;
-    const gift = { ...userOf(data), perUnit: Number(details.diamondCount) || 0, giftName: details.giftName || 'Quà' };
-    console.log(`[tiktok] gift from ${gift.name}: ${gift.giftName} x${count} (${gift.perUnit} coin each, type ${details.giftType}, repeatEnd=${ended})`);
+    const gift = { ...userOf(data), perUnit: Number(info.diamondCount) || 0, giftName: info.name || info.giftName || 'Quà' };
+    console.log(`[tiktok] gift from ${gift.name}: ${gift.giftName} x${count} (${gift.perUnit} coin each, type ${giftType}, repeatEnd=${ended})`);
 
     const key = `${gift.userId}:${data.groupId ?? data.giftId}`;
-    if (details.giftType !== 1) return settle(`${key}:${Date.now()}`, gift, count); // one-off gift: count it now
+    if (giftType !== 1) return settle(`${key}:${Date.now()}`, gift, count); // one-off gift: count it now
 
     const streak = streaks.get(key) || { count: 0 };
     clearTimeout(streak.timer);
