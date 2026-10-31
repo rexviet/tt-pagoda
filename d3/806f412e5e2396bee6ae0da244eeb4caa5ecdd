@@ -1,0 +1,23 @@
+README-windows.md
+  s_56a6e42b43e569::t_68e602bad7f2a0 1-149
+README.md
+  s_56a6e42b43e569::t_9f90977db16b2d 5-6
+speech.js
+  s_56a6e42b43e569::t_3a06aee1d7550d 21-23,30-31,239-240,263,265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3806f412e5e2396bee6ae0da244eeb4caa5ecdd",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
