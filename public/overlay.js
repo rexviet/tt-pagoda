@@ -281,11 +281,14 @@
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
     label.visible = false; // names stay hidden in the crowd; see showLabel
-    c.addChild(shadow, body, label);
+    // a black rounded plate behind the name so it reads against any background; it follows the label (see stepIdle)
+    const labelBg = new PIXI.Graphics();
+    labelBg.visible = false;
+    c.addChild(shadow, body, labelBg, label);
     c.position.set(x, y);
     c.zIndex = y;
     const fig = {
-      c, body, label, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
+      c, body, label, labelBg, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
       outfit, crowdOutfit: outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1, vipScale: 1, vipRank: null,
     };
     setPose(fig, 'kneelup');
@@ -318,12 +321,26 @@
     tween(fig.c, { alpha: 0 }, 500).then(() => fig.c.destroy({ children: true }));
   }
 
+  const LABEL_PAD_X = 9, LABEL_PAD_Y = 3, LABEL_RADIUS = 9;
+  function syncLabelPlate(f) {
+    const plate = f.labelBg;
+    plate.visible = f.label.visible;
+    if (!plate.visible) return;
+    if (f.plateText !== f.label.text) { // redraw only when the name changed
+      f.plateText = f.label.text;
+      const w = f.label.width + LABEL_PAD_X * 2, h = f.label.height + LABEL_PAD_Y * 2;
+      plate.clear().beginFill(0x000000, 0.78).drawRoundedRect(-w / 2, -h + LABEL_PAD_Y, w, h, LABEL_RADIUS).endFill();
+    }
+    plate.y = f.label.y;
+  }
+
   function stepIdle() {
     const now = performance.now();
     for (let i = figures.length - 1; i >= 0; i--) {
       const f = figures[i];
       f.c.scale.set(perspective(f.c.y) * f.jitter * f.heroScale * f.vipScale);
       f.c.zIndex = f.c.y;
+      syncLabelPlate(f);
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
         const set = TEX[f.outfit];
