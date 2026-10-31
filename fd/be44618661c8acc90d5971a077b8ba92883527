@@ -1,0 +1,27 @@
+README.md
+  s_56a6e42b43e569::t_abd49e8a22c65c 142-144,180
+gift-tiers.js
+  s_56a6e42b43e569::t_964efacdca7579 5-7
+public/overlay.js
+  s_56a6e42b43e569::t_3a6b5502e71d49 1116
+scripts/tiktok-events-test.js
+  s_56a6e42b43e569::t_21218b0b7ec615 42-43,70,94
+server.js
+  s_56a6e42b43e569::t_95ce6f84011b63 144,146,149-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fdbe44618661c8acc90d5971a077b8ba92883527",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
