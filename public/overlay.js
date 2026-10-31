@@ -24,9 +24,15 @@
   const stageEl = document.getElementById('stage');
   stageEl.appendChild(app.view);
 
+  // OBS gives the page a transparent canvas of the right size. In any other browser (a phone, a test tab) the page
+  // is centred on a black background, so it is not stuck in a corner on white.
+  const IN_OBS = !!window.obsstudio;
+  if (!IN_OBS) document.body.style.background = '#000';
   function fit() {
     const s = Math.min(window.innerWidth / W, window.innerHeight / H);
     stageEl.style.transform = `scale(${s})`;
+    stageEl.style.left = IN_OBS ? '0px' : `${(window.innerWidth - W * s) / 2}px`;
+    stageEl.style.top = IN_OBS ? '0px' : `${(window.innerHeight - H * s) / 2}px`;
   }
   window.addEventListener('resize', fit);
   fit();
