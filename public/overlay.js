@@ -381,6 +381,55 @@
     return fig2;
   }
 
+  // ---- fortune sticks (xin xăm / gieo quẻ) ----------------------------------------------------------
+  // A viewer who asks for a quẻ in the chat gets a card with the grade, the poem and its meaning, while the voice reads it.
+  // Cards take turns (at most three wait); the card is an HTML layer inside the stage so it scales with the frame.
+  const FORTUNE_CARD_MS = 15000, FORTUNE_MAX_WAITING = 3;
+  const fortuneQueue = [];
+  let fortuneBusy = false;
+  const fortuneCard = document.createElement('div');
+  fortuneCard.style.cssText = 'position:absolute;left:90px;width:900px;top:690px;box-sizing:border-box;padding:34px 44px;text-align:center;' +
+    'background:linear-gradient(180deg,#fff5dc,#f5deb3);color:#3b0d09;border:6px solid #8c1812;outline:3px solid #d9a93a;border-radius:24px;' +
+    'font-family:"Noto Serif",Georgia,serif;opacity:0;transform:scale(0.92);transition:opacity .35s ease,transform .35s ease;pointer-events:none;z-index:30';
+  stageEl.appendChild(fortuneCard);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function renderFortune(ev) {
+    const f = ev.fortune;
+    fortuneCard.innerHTML =
+      `<div style="display:inline-block;background:#8c1812;color:#ffe08a;font-weight:800;font-size:26px;padding:6px 26px;border-radius:999px;letter-spacing:2px;margin-bottom:14px">${esc(f.rank.toUpperCase())}</div>` +
+      `<div style="font-size:38px;font-weight:900;color:#6b0f0a;margin-bottom:8px">Quẻ số ${esc(f.number)} — ${esc(f.title)}</div>` +
+      `<div style="font-size:24px;font-weight:700;color:#8c2d19;margin-bottom:18px">Thí chủ cầu quẻ: ${esc(ev.user)}</div>` +
+      `<div style="font-size:28px;font-weight:700;line-height:1.55;background:rgba(140,24,18,.08);border-top:2px dashed rgba(140,24,18,.35);border-bottom:2px dashed rgba(140,24,18,.35);padding:18px 20px;white-space:pre-line;margin-bottom:18px">${esc(f.poem)}</div>` +
+      `<div style="font-size:23px;line-height:1.45;font-weight:600">Lời bàn: ${esc(f.meaning)}</div>`;
+  }
+
+  async function pumpFortune() {
+    if (fortuneBusy) return;
+    fortuneBusy = true;
+    while (fortuneQueue.length) {
+      const ev = fortuneQueue.shift();
+      showBanner(`${ev.user} đang xin xăm… 🎋`, 1800);
+      await wait(1800);
+      renderFortune(ev);
+      if (ev.speech) enqueueSpeech(ev.speech);
+      fortuneCard.style.opacity = '1';
+      fortuneCard.style.transform = 'scale(1)';
+      await wait(FORTUNE_CARD_MS);
+      fortuneCard.style.opacity = '0';
+      fortuneCard.style.transform = 'scale(0.92)';
+      await wait(400);
+    }
+    fortuneBusy = false;
+  }
+
+  function offerFortune(ev) {
+    if (!ev.fortune || fortuneQueue.length >= FORTUNE_MAX_WAITING) return;
+    fortuneQueue.push(ev);
+    pumpFortune().catch(() => { fortuneBusy = false; });
+  }
+  window.__fortune = () => ({ waiting: fortuneQueue.length, busy: fortuneBusy, shown: fortuneCard.style.opacity === '1', title: fortuneCard.textContent.slice(0, 60) }); // debug handle for tests
+
   // ---- people leaving ---------------------------------------------------------------------------
   // A viewer who leaves the room loses their disciple. The top six on the cushions stay (they are on the ranking), and so
   // does anyone with a prayer on stage or waiting in the queue; those go once they are free. Ambient figures are not people.
@@ -1065,6 +1114,7 @@
       case 'join':
         welcome(findOrCreateFigure(ev.user, ev.userId));
         break;
+      case 'fortune': offerFortune(ev); break;
       case 'leave': markLeaving(ev.userId); break;
       case 'viewers': reconcileViewers(ev.count); break;
       case 'share':
@@ -1072,7 +1122,7 @@
         break;
       case 'nammo': nammo(ev.count).catch(() => {}); break;
       case 'crowd': spawnCrowd(ev.count); break;
-      case 'reset': speechQueue.length = 0; resetScene(); break;
+      case 'reset': speechQueue.length = 0; fortuneQueue.length = 0; resetScene(); break;
       default: break;
     }
   }

@@ -175,6 +175,8 @@ Mỗi lần restart server phải bấm **Kết nối Live** lại. Mỗi quà n
 
 Trước khi lên sóng thật, bấm **Làm Mới Phiên Live** để xóa bảng xếp hạng thử.
 
+**Gieo quẻ:** khi người xem chat có chữ `xin xăm`, `gieo quẻ`, `rút quẻ` hoặc `quẻ`, overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) và giọng đọc đọc lại quẻ đó. Mỗi người gieo một lần mỗi 60 giây (đổi bằng `FORTUNE_COOLDOWN_MS` trong `.env`); tối đa 3 tờ chờ lượt. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
+
 **Người rời phòng:** khi ai đó thoát, nhân vật của họ biến mất. Nếu TikTok không báo ai vừa thoát (thường là vậy), overlay dựa vào số người xem của phòng: khi số nhân vật nhiều hơn số người xem, những người im lặng lâu nhất bị coi là đã rời. Top 6 trên đệm và người đang chờ lạy được giữ lại; ai quay lại hoặc tặng quà sẽ có nhân vật mới. Cách này là ước lượng, chưa được thử trên phòng live thật.
 
 ### Phát từ điện thoại (nếu tài khoản chưa dùng được LIVE Studio)

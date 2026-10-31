@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
 const { buildParts, audioFor, checkVoiceServer } = require('./speech');
+const { FORTUNE_DECK } = require('./fortunes');
 
 const PORT = Number(process.env.PORT) || 3000;
 // A thank-you line takes about 2 s to make and 4 s to say, so a busy room cannot have every gift and share spoken.
@@ -98,7 +99,10 @@ function setStatus(next) {
 // ready when the overlay asks. Returns the clip ids in play order.
 function speechFor(kind, name) {
   if (!voiceEnabled || !takeSpeechToken(kind)) return null;
-  const parts = buildParts(kind, name);
+  return registerParts(buildParts(kind, name));
+}
+
+function registerParts(parts) {
   if (!parts) return null;
   return parts.map((text) => {
     const id = require('crypto').createHash('sha1').update(text).digest('hex').slice(0, 20);
@@ -138,9 +142,28 @@ function handleGift({ userId, name, coins, giftName, count }) {
   });
 }
 
+// A viewer who asks for a quẻ in the chat draws a fortune stick: the overlay shakes the tube, shows the card and the
+// voice reads it. One draw per viewer per FORTUNE_COOLDOWN_MS so the chat cannot be flooded with cards.
+const FORTUNE_WORDS = ['xin xăm', 'xin xam', 'gieo quẻ', 'gieo que', 'rút quẻ', 'rut que', 'quẻ'];
+const FORTUNE_COOLDOWN_MS = Number(process.env.FORTUNE_COOLDOWN_MS) || 60000;
+const lastFortune = new Map(); // userId -> time of the last draw
+
+function handleFortune({ userId, name, force = false }) {
+  const now = Date.now();
+  if (!force && now - (lastFortune.get(userId) || 0) < FORTUNE_COOLDOWN_MS) return false;
+  lastFortune.set(userId, now);
+  if (lastFortune.size > 500) lastFortune.delete(lastFortune.keys().next().value);
+  const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];
+  const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`Thí chủ ${name} vừa gieo được ${fortune.ttsSummary}`]) : null;
+  io.emit('overlay', { type: 'fortune', user: name, userId, fortune, speech });
+  return true;
+}
+
 function handleChat({ userId, name, text }) {
   if (!text) return;
   io.emit('overlay', { type: 'chat', user: name, userId, text: String(text).slice(0, 120) });
+  const lower = String(text).toLowerCase();
+  if (FORTUNE_WORDS.some((w) => lower.includes(w))) handleFortune({ userId, name });
 }
 
 // ---- TikTok connection -----------------------------------------------------
@@ -323,6 +346,11 @@ io.on('connection', (socket) => {
   socket.on('sim:chat', ({ user, text }) => {
     const name = String(user || 'Khách').slice(0, 30);
     handleChat({ userId: `sim:${name}`, name, text });
+  });
+
+  socket.on('sim:fortune', ({ user }) => {
+    const name = String(user || 'Khách').slice(0, 30);
+    handleFortune({ userId: `sim:${name}`, name, force: true });
   });
 
   socket.on('sim:join', ({ user }) => {

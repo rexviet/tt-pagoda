@@ -76,6 +76,7 @@
 
   $('btnJoin').onclick = () => socket.emit('sim:join', { user: user() });
   $('btnShare').onclick = () => socket.emit('sim:share', { user: user() });
+  $('btnFortune').onclick = () => socket.emit('sim:fortune', { user: user() });
   $('btnBubble').onclick = () => socket.emit('sim:chat', { user: user(), text: text() });
   $('btnNammo').onclick = () => socket.emit('crowd:nammo', 8);
   $('btnCrowd').onclick = () => socket.emit('crowd:spawn', 48);
