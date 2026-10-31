@@ -1,0 +1,21 @@
+public/overlay.js
+  s_56a6e42b43e569::t_ee617b54aa6d92 235,349,552,615
+server.js
+  s_56a6e42b43e569::t_a54b5643a06d4a 74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6b46f9dc424d5c17234b97fc3b92bd7e1e8c44d",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
