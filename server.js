@@ -196,10 +196,12 @@ async function connectLive(rawId) {
   if (connection) await disconnectLive();
 
   setStatus({ state: 'connecting', message: `Đang kết nối @${uniqueId}...`, uniqueId });
-  const conn = new TikTokLiveConnection(uniqueId);
-  attachTikTokHandlers(conn);
-  connection = conn;
+  let conn;
   try {
+    // The second argument is required by this version of the library, even when empty.
+    conn = new TikTokLiveConnection(uniqueId, {});
+    attachTikTokHandlers(conn);
+    connection = conn;
     const state = await conn.connect();
     if (connection !== conn) return;
     setStatus({
@@ -232,7 +234,12 @@ io.on('connection', (socket) => {
   socket.emit('voice', voiceEnabled);
   socket.emit('music', music);
 
-  socket.on('live:connect', (uniqueId) => connectLive(uniqueId));
+  socket.on('live:connect', (uniqueId) => {
+    connectLive(uniqueId).catch((err) => {
+      console.error('[tiktok] connect failed:', err);
+      setStatus({ state: 'error', message: `Không kết nối được: ${err && err.message ? err.message : err}`, roomId: null });
+    });
+  });
   socket.on('live:disconnect', () => disconnectLive());
   socket.on('music:set', (next) => {
     if (typeof next?.enabled === 'boolean') music.enabled = next.enabled;
@@ -282,6 +289,10 @@ if (require.main === module) server.listen(PORT, () => {
 });
 
 module.exports = { server, io, attachTikTokHandlers };
+
+// A stray error in one handler must not take the whole show down in the middle of a live.
+process.on('uncaughtException', (err) => console.error('[server] uncaught exception:', err));
+process.on('unhandledRejection', (err) => console.error('[server] unhandled rejection:', err));
 
 process.on('SIGINT', async () => {
   await disconnectLive();
