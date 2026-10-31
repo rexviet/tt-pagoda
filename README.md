@@ -166,6 +166,22 @@ Thêm nguồn **Link** với địa chỉ overlay **có đuôi `?sound=1&lite=1`
 ### Quy tắc âm thanh
 Chỉ trang trong OBS tự phát tiếng. Mọi nơi khác (tab Chrome, LIVE Studio, điện thoại) cần `?sound=1`. Thêm `&debug=1` để hiện khung chẩn đoán trên màn hình (âm thanh có được phép không, nhạc có đang phát không). Thêm `?mute=1` để tắt tiếng trang đó.
 
+### Tham số trên địa chỉ overlay
+
+Thêm vào sau `/overlay`, nối nhiều tham số bằng `&`. Ví dụ: `http://localhost:3000/overlay?sound=1&lite=1`.
+
+| Tham số | Tác dụng |
+|---|---|
+| `sound=1` | bật tiếng ở nơi không phải OBS (tab Chrome, LIVE Studio, điện thoại). Chỉ cần có tham số này là đủ |
+| `mute=1` | tắt hẳn tiếng, kể cả trong OBS. Trang xem trước ở admin dùng tham số này |
+| `lite=1` | chế độ nhẹ cho lúc live: tắt khử răng cưa, 30 khung hình/giây, ảnh nền nhỏ hơn, tối đa khoảng 60 phật tử (đám đông nền tối đa 30; top 6 luôn giữ) |
+| `names=1` | hiện tên của mọi nhân vật liên tục (đám đông giả lập có tên bịa), để xem cảnh đông người. Phòng đông thì các nền tên đè lên nhau, chỉ dùng để thử |
+| `outfits=devotee,brown,pink` | chọn bộ áo được nạp, cách nhau bằng dấu phẩy. Có `pink` thì top 6 mặc hồng; thiếu `pink` thì top 6 giữ áo của đám đông. Tham số này được ưu tiên hơn `COLOR_OUTFITS` trong `.env` |
+| `debug=1` | hiện khung chẩn đoán (âm thanh có được phép không, nhạc, hàng đợi giọng đọc, ...) |
+| `queuewait=<ms>` | thời gian tối đa một quà chờ tới lượt lên lạy (mặc định 25000). Dùng khi kiểm thử |
+
+`sound`, `mute` và `debug` chỉ cần xuất hiện trên địa chỉ, còn `lite` và `names` phải đúng `=1`.
+
 ## 7. Kết nối phòng live thật
 
 1. **Bắt đầu live trước.** Tool chỉ nối được vào phòng đang phát.
