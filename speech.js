@@ -5,8 +5,10 @@
 // the name needs synthesizing, and names are cached too (a returning supporter costs nothing).
 //
 // Voice providers (TTS_PROVIDER):
-//   omnivoice (default)  local VoiceStudio server, cloned voice  -> OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS
-//   say                  macOS "Linh" voice, offline and instant
+//   say (default)        macOS "Linh" voice, offline and instant
+//   omnivoice            VoiceStudio server, cloned voice -> OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS.
+//                        Opt-in: on the Mac's local server (device mps) it produced noise, not speech, for every
+//                        voice and language; check a clip by transcribing it before trusting this provider.
 //   edge                 Microsoft Edge neural voice (needs network, was seen dropping mid-sentence)
 // If the chosen provider fails for a clip, the macOS voice reads it (that clip is not cached).
 const crypto = require('crypto');
@@ -16,7 +18,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'omnivoice';
+const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'say';
 const OMNI_URL = process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900';
 const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'phat-phap';
 const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 8; // fewer steps = faster, rougher
