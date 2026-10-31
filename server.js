@@ -36,7 +36,9 @@ const io = new Server(server);
 
 const pixiDist = path.join(path.dirname(require.resolve('pixi.js')), '..', 'dist');
 app.use('/lib',express.static(pixiDist));
-app.use(express.static(path.join(__dirname, 'public')));
+// no-cache = the browser may keep a copy but must ask the server whether it changed, so edits to the overlay, admin and
+// images show up on the next reload instead of an old copy being reused (304 when nothing changed).
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/overlay', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'overlay.html')));
 app.get('/api/tiers', (_req, res) => res.json(GIFT_TIERS));
