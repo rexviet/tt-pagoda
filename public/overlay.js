@@ -165,26 +165,46 @@
 
   // ---- figures (disciples) -------------------------------------------------
   const figures = [];
-  // Sprites live in public/assets/disciples/. kneel has two outfits, picked per disciple.
-  const SPRITES = {
-    kneelA: 'kneel-brown', kneelB: 'kneel-teal', stand: 'stand-maroon', walk: 'walk-pink', bow: 'bow-grey',
-  };
+  // Sprites live in public/assets/disciples/ as <pose>-<outfit>.png (poses: kneel, stand, walk, bow).
+  // A disciple only ever uses sprites of its own outfit. An outfit needs kneel-<outfit>.png; any missing
+  // pose falls back to the kneel sprite with a code-driven motion (bow = tilt and squash, walk = hop).
+  const OUTFITS = ['brown'];
+  // front poses face the camera; *up poses are seen from behind, facing the Buddha
+  const POSES = ['kneel', 'stand', 'walk', 'bow', 'kneelup', 'walkup', 'bowup'];
   const POSE_HEIGHT = { kneel: 120, stand: 140, walk: 140, bow: 105 };
-  const TEX = {};
+  const baseOf = (pose) => pose.replace(/up$/, '');
+  const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
   async function loadSprites() {
-    await Promise.all(Object.entries(SPRITES).map(async ([key, file]) => {
-      TEX[key] = await PIXI.Assets.load(`/assets/disciples/${file}.png`);
-    }));
+    for (const outfit of OUTFITS) {
+      const set = {};
+      for (const pose of POSES) {
+        const url = `/assets/disciples/${pose}-${outfit}.png`;
+        try {
+          const head = await fetch(url, { method: 'HEAD' });
+          if (head.ok) set[pose] = await PIXI.Assets.load(url);
+        } catch (_) { /* pose not provided */ }
+      }
+      if (set.kneel) TEX[outfit] = set;
+    }
+    if (!Object.keys(TEX).length) throw new Error('no disciple sprites found in /assets/disciples');
   }
 
   function setPose(fig, pose) {
-    const tex = pose === 'kneel' ? fig.kneelTex : TEX[pose];
-    const h = POSE_HEIGHT[pose];
+    const set = TEX[fig.outfit];
+    const base = baseOf(pose);
+    // Missing pose: reuse the kneel sprite that faces the same way (back view for *up poses).
+    const real = !!(set[pose] || set[base]);
+    const tex = set[pose] || set[base] || (pose.endsWith('up') && set.kneelup) || set.kneel;
+    const h = POSE_HEIGHT[real ? base : 'kneel'];
+    const sx = h / tex.height;
+    const squash = !real && base === 'bow';
     fig.pose = pose;
+    fig.base = base;
+    fig.fallback = !real;
     fig.body.texture = tex;
-    fig.body.scale.set(h / tex.height);
+    fig.body.scale.set(squash ? sx * 1.1 : sx, squash ? sx * 0.7 : sx);
     fig.label.y = -h - 4;
     fig.h = h;
   }
@@ -197,7 +217,9 @@
   function makeFigure(name, userId, x, y) {
     const c = new PIXI.Container();
     const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 2, 40, 10).endFill();
-    const body = new PIXI.Sprite(TEX.kneelA);
+    const outfits = Object.keys(TEX);
+    const outfit = outfits[Math.floor(Math.random() * outfits.length)];
+    const body = new PIXI.Sprite(TEX[outfit].kneel);
     body.anchor.set(0.5, 1);
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
@@ -206,7 +228,7 @@
     c.zIndex = y;
     const fig = {
       c, body, label, name, userId, busy: false, bornAt: performance.now(), phase: Math.random() * 6, baseY: y,
-      kneelTex: Math.random() < 0.5 ? TEX.kneelA : TEX.kneelB, jitter: 0.92 + Math.random() * 0.16,
+      outfit, jitter: 0.92 + Math.random() * 0.16,
     };
     setPose(fig, 'kneel');
     c.scale.set(perspective(y) * fig.jitter);
@@ -236,9 +258,16 @@
       const f = figures[i];
       f.c.scale.set(perspective(f.c.y) * f.jitter);
       f.c.zIndex = f.c.y;
-      if (f.busy) continue;
-      f.body.rotation = Math.sin(now / 900 + f.phase) * 0.025;
-      if (now - f.bornAt > IDLE_LIFETIME_MS && f.userId && !f.keep) removeFigure(f);
+      let tilt = 0, hop = 0;
+      if (f.base === 'walk') {
+        tilt = Math.sin(now / 130) * 0.07;
+        if (f.fallback) hop = -Math.abs(Math.sin(now / 130)) * 12;
+      } else if (!f.busy) {
+        tilt = Math.sin(now / 900 + f.phase) * 0.025;
+      }
+      f.body.rotation += (tilt - f.body.rotation) * 0.25;
+      f.body.y += (hop - f.body.y) * 0.4;
+      if (!f.busy && now - f.bornAt > IDLE_LIFETIME_MS && f.userId && !f.keep) removeFigure(f);
     }
   }
 
@@ -259,30 +288,20 @@
   async function walkTo(fig, x, y, speed = 260) {
     const dx = x - fig.c.x, dy = y - fig.c.y;
     const ms = Math.max(400, (Math.hypot(dx, dy) / speed) * 1000);
-    setPose(fig, 'walk');
-    const steps = tween(fig.c, { x, y }, ms, ease.inOut);
-    const bob = setInterval(() => {
-      if (fig.c.destroyed) return clearInterval(bob);
-      fig.body.rotation = Math.sin(performance.now() / 130) * 0.07;
-    }, 30);
-    await steps;
-    clearInterval(bob);
-    fig.body.rotation = 0;
+    setPose(fig, dy < 0 ? 'walkup' : 'walk');
+    await tween(fig.c, { x, y }, ms, ease.inOut);
     fig.baseY = y;
     setPose(fig, 'kneel');
   }
 
-  // deep = full prostration (side-on bow sprite); otherwise upright kneeling with palms together
-  async function kneel(fig, deep = false) {
-    fig.body.rotation = 0;
-    setPose(fig, deep ? 'bow' : 'kneel');
-  }
+  // deep = full prostration; otherwise upright kneeling with palms together
+  async function kneel(fig, deep = false) { setPose(fig, (deep ? 'bow' : 'kneel') + 'up'); }
   async function stand(fig) { setPose(fig, 'stand'); await wait(350); }
   async function bow(fig, times = 3) {
     for (let i = 0; i < times; i++) {
-      setPose(fig, 'bow');
+      setPose(fig, 'bowup');
       await wait(900);
-      setPose(fig, 'kneel');
+      setPose(fig, 'kneelup');
       await wait(600);
     }
   }
