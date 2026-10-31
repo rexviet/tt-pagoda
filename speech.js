@@ -18,14 +18,17 @@ const { execFile, spawn } = require('child_process');
 const readline = require('readline');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const PROVIDER = ['say', 'edge', 'omnivoice', 'zerotts'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'say';
+// `say` only exists on macOS; elsewhere the default (and the fallback) is the Microsoft Edge voice.
+const IS_MAC = process.platform === 'darwin';
+const PROVIDER = ['say', 'edge', 'omnivoice', 'zerotts'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : (IS_MAC ? 'say' : 'edge');
 const OMNI_URL = (process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900').replace(/\/$/, '');
 const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'default';
 const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 16; // fewer steps = faster, rougher
 const OMNI_SPEED = Number(process.env.OMNIVOICE_SPEED) || 1.15; // 1.0 = normal; above ~1.3 words start to blur
 const OMNI_TIMEOUT_MS = 10000; // a live line that takes longer is not worth waiting for
 const ZERO_VOICE = process.env.ZEROTTS_VOICE || 'maichi';
-const ZERO_PYTHON = process.env.ZEROTTS_PYTHON || path.join(__dirname, 'tts-env', 'bin', 'python');
+const ZERO_PYTHON = process.env.ZEROTTS_PYTHON
+  || (process.platform === 'win32' ? path.join(__dirname, 'tts-env', 'Scripts', 'python.exe') : path.join(__dirname, 'tts-env', 'bin', 'python'));
 const ZERO_MODEL = process.env.ZEROTTS_MODEL_PATH || path.join(__dirname, 'models', 'zerotts');
 const ZERO_LOAD_TIMEOUT_MS = 90000; // loading the model takes a few seconds, longer on a cold disk
 const ZERO_REQUEST_TIMEOUT_MS = 8000; // a thank-you that is not ready within this is stale: it is dropped, not read late
@@ -233,6 +236,8 @@ async function synthZero(text) {
 
 process.on('exit', () => { if (zero) zero.proc.kill(); });
 
+const FALLBACK_PROVIDER = IS_MAC ? 'say' : 'edge';
+const FALLBACK = IS_MAC ? synthSay : synthEdge;
 const PRIMARY = { omnivoice: synthOmni, edge: synthEdge, say: synthSay, zerotts: synthZero }[PROVIDER];
 
 // ---- cache -----------------------------------------------------------------
@@ -255,9 +260,9 @@ function audioFor(text) {
         fs.writeFileSync(file, buf);
         return buf;
       } catch (err) {
-        if (PROVIDER === 'say' || err.stale) throw err; // a stale line is skipped: reading it late in another voice helps nobody
+        if (PROVIDER === FALLBACK_PROVIDER || err.stale) throw err; // a stale line is skipped: reading it late in another voice helps nobody
         console.error(`[tts] ${PROVIDER} failed, reading the line with the macOS voice:`, err.message);
-        return synthSay(text); // not cached: the real voice gets another chance next time
+        return FALLBACK(text); // not cached: the real voice gets another chance next time
       }
     })().finally(() => inflight.delete(key));
     inflight.set(key, job);

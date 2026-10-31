@@ -2,6 +2,8 @@
 
 Overlay cho TikTok Live chủ đề chùa. Người xem tặng quà, chat, chia sẻ, vào phòng thì nhân vật Phật tử xuất hiện trong chánh điện: người tặng quà chạy lên bàn thờ lạy dưới máy quay zoom vào tượng Phật, top 6 bảng xếp hạng ngồi sẵn trên 6 đệm, lời chúc được đọc bằng giọng tiếng Việt.
 
+> **Dùng Windows?** Xem [README-windows.md](README-windows.md). README này viết theo macOS.
+
 Cách hoạt động: một server Node nhận sự kiện từ phòng live (thư viện `tiktok-live-connector`), phát cho trang **overlay** (Pixi.js, khung 1080×1920) mà OBS hoặc TikTok LIVE Studio nhúng vào làm nguồn hình. Trang **admin** để kết nối phòng, thử giả lập và chỉnh nhạc, giọng, đám đông.
 
 ## Mục lục
