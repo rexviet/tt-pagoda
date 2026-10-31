@@ -42,6 +42,9 @@ app.use('/lib',express.static(pixiDist));
 app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/overlay', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'overlay.html')));
+// COLOR_OUTFITS=0 puts everyone in the plain grey robe: no pink for the top six, no brown in the crowd.
+const COLOR_OUTFITS = !/^(0|false|off|no)$/i.test(process.env.COLOR_OUTFITS || '1');
+app.get('/api/config', (_req, res) => res.json({ colorOutfits: COLOR_OUTFITS }));
 app.get('/api/tiers', (_req, res) => res.json(GIFT_TIERS));
 
 // Background music: every audio file dropped into public/assets/music is played in a loop by the overlay.

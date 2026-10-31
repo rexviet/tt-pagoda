@@ -52,6 +52,7 @@ cp .env.example .env
 | `ZEROTTS_VOICE` | tên hoặc mã giọng ZeroTTS | `maichi` |
 | `OMNIVOICE_URL`, `OMNIVOICE_VOICE`, `OMNIVOICE_PIN` | server VoiceStudio (nếu dùng) | xem file mẫu |
 | `AMBIENT_CROWD` | số Phật tử vô danh đứng sẵn (0 đến 350) | 50 |
+| `COLOR_OUTFITS` | `0` = ai cũng mặc áo xám, không có áo hồng (top 6) và áo nâu (đám đông) | 1 |
 | `MUSIC_VOLUME` | âm lượng nhạc nền (0 đến 1) | 0.25 |
 | `SPEECH_REFILL_MS` | cứ bao lâu được thêm một câu đọc khi phòng đông | 4000 |
 | `STREAK_IDLE_MS` | quà bấm liên tục được chốt sau khi im lặng bao lâu | 3000 |

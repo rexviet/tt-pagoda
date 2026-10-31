@@ -209,7 +209,15 @@
   // worn only by the top six on the cushions, and a disciple changes into or out of it as the ranking moves them.
   // ?outfits=brown on the overlay address restricts the cast without touching any file.
   const VIP_OUTFIT = 'pink';
-  const OUTFITS = (new URLSearchParams(location.search).get('outfits') || 'devotee,brown,pink').split(',').map((o) => o.trim()).filter(Boolean);
+  let OUTFITS = [];
+  async function chooseOutfits() {
+    const asked = new URLSearchParams(location.search).get('outfits');
+    let list = asked || 'devotee,brown,pink';
+    if (!asked) { // the server's COLOR_OUTFITS=0 switches the coloured robes off
+      try { if ((await (await fetch('/api/config')).json()).colorOutfits === false) list = 'devotee'; } catch (_) { /* keep the default */ }
+    }
+    OUTFITS = list.split(',').map((o) => o.trim()).filter(Boolean);
+  }
   // front poses face the camera; *up poses are seen from behind, facing the Buddha
   // Extra frames some casts have: walkup2 (the other foot), settle (sinking onto the knees), bowa/bowb/bowc (the steps of
   // a bow down to the floor). A cast without them just goes straight between kneelup and bowup.
@@ -223,6 +231,7 @@
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
   async function loadSprites() {
+    await chooseOutfits();
     for (const outfit of OUTFITS) {
       const set = {};
       for (const pose of POSES) {
