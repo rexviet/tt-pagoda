@@ -46,7 +46,7 @@
   // the rest of the crowd fades out so nobody else is in the shot. The framing keeps the Buddha's head and the disciple
   // inside the band TikTok leaves free (its header covers the top ~14% of the screen, its chat and buttons the bottom ~16%).
   // When no shot is active the camera eases back to the whole hall (zoom 1 is exactly the original framing).
-  const ALTAR_SPOT = { x: 540, y: 1195 }; // where a gift giver kneels, right in front of the altar
+  const ALTAR_SPOT = { x: 540, y: 1240 }; // where a gift giver kneels, right in front of the altar
   const ALTAR_VIEW = { zoom: 1.7, x: 540, y: 839 }; // world point at the middle of the screen, and the zoom
   const CAMERA_SETTLE_MS = 260; // smaller = snappier moves
   const CROWD_FADE_MS = 200;
