@@ -12,18 +12,22 @@ s.on('leaderboard', (l) => { board = l; });
 
 async function checkSpeech() {
   const spoken = events.filter((e) => e.type === 'gift');
-  assert.ok(spoken.every((e) => typeof e.speech === 'string' && e.speech.length), 'every gift carries a speech id');
-  const res = await fetch(`http://localhost:${port}/tts/${spoken[0].speech}.mp3`);
-  assert.strictEqual(res.status, 200);
-  assert.strictEqual(res.headers.get('content-type'), 'audio/mpeg');
-  const bytes = (await res.arrayBuffer()).byteLength;
-  assert.ok(bytes > 2000, `audio too small: ${bytes} bytes`);
+  assert.ok(spoken.every((e) => Array.isArray(e.speech) && e.speech.length === 2), 'every gift carries a name clip and a tail clip');
+  let bytes = 0;
+  for (const id of spoken[0].speech) {
+    const res = await fetch(`http://localhost:${port}/tts/${id}.mp3`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.headers.get('content-type'), 'audio/mpeg');
+    const size = (await res.arrayBuffer()).byteLength;
+    assert.ok(size > 1500, `audio too small: ${size} bytes`);
+    bytes += size;
+  }
   assert.strictEqual((await fetch(`http://localhost:${port}/tts/unknown.mp3`)).status, 404);
 
   events.length = 0;
   s.emit('sim:share', { user: 'C' });
   await new Promise((r) => setTimeout(r, 200));
-  assert.strictEqual(events.find((e) => e.type === 'share').speech.length > 0, true, 'share is spoken');
+  assert.strictEqual(Array.isArray(events.find((e) => e.type === 'share').speech), true, 'share is spoken');
 
   s.emit('voice:set', false);
   await new Promise((r) => setTimeout(r, 100));
@@ -52,4 +56,5 @@ s.on('connect', () => {
     }).catch((e) => { console.error('FAIL:', e.message); process.exit(1); });
   }, 500);
 });
-setTimeout(() => { console.error('FAIL: no connection'); process.exit(1); }, 5000);
+const connectTimer = setTimeout(() => { console.error('FAIL: no connection'); process.exit(1); }, 5000);
+s.on('connect', () => clearTimeout(connectTimer));

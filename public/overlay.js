@@ -511,9 +511,10 @@
   const speechQueue = [];
   let speaking = false;
 
-  function enqueueSpeech(id) {
-    if (MUTED || !id || speechQueue.length >= MAX_PENDING_SPEECH) return;
-    speechQueue.push(id);
+  // A spoken line is a list of clip ids (name, then the fixed tail) played back to back.
+  function enqueueSpeech(ids) {
+    if (MUTED || !Array.isArray(ids) || !ids.length || speechQueue.length >= MAX_PENDING_SPEECH) return;
+    speechQueue.push([...ids]);
     pumpSpeech();
   }
 
@@ -533,35 +534,46 @@
     document.body.appendChild(unlockHint);
   }
 
+  // Resolves 'ok', 'error' or 'blocked' (autoplay refused). The server may still be synthesizing, so allow a long wait.
+  function playClip(id) {
+    return new Promise((resolve) => {
+      const audio = new Audio(`/tts/${id}.mp3`);
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(guard);
+        resolve(result);
+      };
+      const guard = setTimeout(() => finish('error'), 60000); // a stuck clip must not silence everything after it
+      audio.addEventListener('ended', () => finish('ok'));
+      audio.addEventListener('error', () => { console.warn('[speech] clip failed to load', id); finish('error'); });
+      audio.play().catch((err) => {
+        if (err && err.name === 'NotAllowedError') {
+          console.warn('[speech] browser blocked autoplay; click the page to enable sound');
+          finish('blocked');
+        } else {
+          console.warn('[speech] play failed:', err && err.message);
+          finish('error');
+        }
+      });
+    });
+  }
+
+  async function playLine(ids) {
+    for (let i = 0; i < ids.length; i++) {
+      if ((await playClip(ids[i])) === 'blocked') {
+        speechQueue.unshift(ids.slice(i));
+        showUnlockHint();
+        return;
+      }
+    }
+  }
+
   function pumpSpeech() {
     if (speaking || !speechQueue.length || unlockHint) return;
     speaking = true;
-    const id = speechQueue.shift();
-    const audio = new Audio(`/tts/${id}.mp3`);
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(guard);
-      speaking = false;
-      pumpSpeech();
-    };
-    const guard = setTimeout(done, 20000); // a stuck line must not silence everything after it
-    audio.addEventListener('ended', done);
-    audio.addEventListener('error', () => { console.warn('[speech] audio failed to load', id); done(); });
-    audio.play().catch((err) => {
-      if (err && err.name === 'NotAllowedError') {
-        console.warn('[speech] browser blocked autoplay; click the page to enable sound');
-        finished = true;
-        clearTimeout(guard);
-        speaking = false;
-        speechQueue.unshift(id);
-        showUnlockHint();
-      } else {
-        console.warn('[speech] play failed:', err && err.message);
-        done();
-      }
-    });
+    playLine(speechQueue.shift()).finally(() => { speaking = false; pumpSpeech(); });
   }
 
   // ---- event wiring --------------------------------------------------------

@@ -1,7 +1,14 @@
 // Spoken lines for each feature: "<name> đã dâng hương, chúc bạn <random blessing>".
-// Default voice is the local macOS "Linh" voice: offline and fast enough to start with the animation.
-// TTS_PROVIDER=edge switches to the Microsoft Edge neural voice (nicer, but it needs the network and
-// was seen taking 5-7 s or dropping mid-sentence), with Linh as the fallback when it fails.
+//
+// A line is two clips played back to back: the NAME and a fixed TAIL ("đã dâng hương, chúc bạn ...").
+// The 72 possible tails are synthesized once in the background and cached on disk, so at runtime only
+// the name needs synthesizing, and names are cached too (a returning supporter costs nothing).
+//
+// Voice providers (TTS_PROVIDER):
+//   omnivoice (default)  local VoiceStudio server, cloned voice  -> OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS
+//   say                  macOS "Linh" voice, offline and instant
+//   edge                 Microsoft Edge neural voice (needs network, was seen dropping mid-sentence)
+// If the chosen provider fails for a clip, the macOS voice reads it (that clip is not cached).
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
@@ -9,10 +16,15 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
-const PROVIDER = process.env.TTS_PROVIDER === 'edge' ? 'edge' : 'say';
+const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'omnivoice';
+const OMNI_URL = process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900';
+const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'phat-phap';
+const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 8; // fewer steps = faster, rougher
 const EDGE_VOICE = process.env.TTS_VOICE || 'vi-VN-HoaiMyNeural';
 const CACHE_DIR = path.join(__dirname, '.cache', 'tts');
 const MAX_NAME_LENGTH = 20;
+const NAME_BACKLOG_LIMIT = 3; // beyond this many names waiting, new ones are read as the generic name
+const GENERIC_NAME = 'Một Phật tử';
 
 const ACTIONS = {
   huong: 'đã dâng hương',
@@ -38,6 +50,9 @@ const BLESSINGS = [
   'cả năm đắc lộc',
 ];
 
+const tailText = (action, blessing) => `${action}, chúc bạn ${blessing}`;
+const allTails = () => Object.values(ACTIONS).flatMap((a) => BLESSINGS.map((b) => tailText(a, b)));
+
 // TikTok nicknames carry emoji and symbols that a voice would read out loud or choke on.
 function speakableName(name) {
   const clean = String(name || '')
@@ -46,17 +61,25 @@ function speakableName(name) {
     .trim()
     .slice(0, MAX_NAME_LENGTH)
     .trim();
-  return clean || 'Một Phật tử';
-}
-
-function buildLine(kind, name, random = Math.random) {
-  const action = ACTIONS[kind];
-  if (!action) return null;
-  const blessing = BLESSINGS[Math.floor(random() * BLESSINGS.length)];
-  return `${speakableName(name)} ${action}, chúc bạn ${blessing}`;
+  return clean || GENERIC_NAME;
 }
 
 // ---- synthesis -------------------------------------------------------------
+
+async function synthOmni(text) {
+  const res = await fetch(`${OMNI_URL}/v1/audio/speech`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      input: text, voice: OMNI_VOICE, language: 'vi', response_format: 'mp3', num_step: OMNI_STEPS,
+    }),
+    signal: AbortSignal.timeout(90000),
+  });
+  if (!res.ok) throw new Error(`omnivoice ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const audio = Buffer.from(await res.arrayBuffer());
+  if (!audio.length) throw new Error('omnivoice returned no audio');
+  return audio;
+}
 
 async function synthEdge(text) {
   const tts = new MsEdgeTTS();
@@ -95,33 +118,100 @@ async function synthSay(text) {
   }
 }
 
-async function synthesize(text) {
-  if (PROVIDER === 'say') return synthSay(text);
-  try {
-    return await synthEdge(text);
-  } catch (err) {
-    console.error('[tts] edge voice failed, falling back to macOS voice:', err.message);
-    return synthSay(text);
+const PRIMARY = { omnivoice: synthOmni, edge: synthEdge, say: synthSay }[PROVIDER];
+
+// ---- job queue: one synthesis at a time, live requests ahead of background warm-up -----------------
+
+const queues = { high: [], low: [] };
+let running = 0;
+function schedule(fn, priority) {
+  return new Promise((resolve, reject) => {
+    queues[priority].push({ fn, resolve, reject });
+    pump();
+  });
+}
+function pump() {
+  while (running < 1) {
+    const job = queues.high.shift() || queues.low.shift();
+    if (!job) return;
+    running++;
+    job.fn().then(job.resolve, job.reject).finally(() => { running--; pump(); });
   }
 }
+const backlog = () => queues.high.length + running;
 
-// Same line -> same file, so repeated phrases are instant and never hit the network twice.
+// ---- cache -----------------------------------------------------------------
+
+// The key includes the voice settings, so switching voice never replays an old voice's clips.
+const cacheId = (text) => crypto.createHash('sha1')
+  .update(`${PROVIDER}|${PROVIDER === 'omnivoice' ? `${OMNI_VOICE}|${OMNI_STEPS}` : EDGE_VOICE}|${text}`)
+  .digest('hex').slice(0, 20);
+const cacheFile = (text) => path.join(CACHE_DIR, `${cacheId(text)}.mp3`);
+const isReady = (text) => fs.existsSync(cacheFile(text));
+
 const inflight = new Map();
-function audioFor(text) {
-  const id = crypto.createHash('sha1').update(text).digest('hex').slice(0, 20);
-  const file = path.join(CACHE_DIR, `${id}.mp3`);
+// opts.fallback=false makes a provider failure throw instead of using the macOS voice (used by warm-up).
+function audioFor(text, { priority = 'high', fallback = true } = {}) {
+  const file = cacheFile(text);
   if (fs.existsSync(file)) return Promise.resolve(fs.readFileSync(file));
-  if (!inflight.has(id)) {
-    const job = synthesize(text)
-      .then((buf) => {
+  const key = cacheId(text);
+  if (!inflight.has(key)) {
+    const job = schedule(async () => {
+      try {
+        const buf = await PRIMARY(text);
         fs.mkdirSync(CACHE_DIR, { recursive: true });
         fs.writeFileSync(file, buf);
         return buf;
-      })
-      .finally(() => inflight.delete(id));
-    inflight.set(id, job);
+      } catch (err) {
+        if (!fallback || PROVIDER === 'say') throw err;
+        console.error(`[tts] ${PROVIDER} failed, reading "${text}" with the macOS voice:`, err.message);
+        return synthSay(text); // not cached: the real voice gets another chance next time
+      }
+    }, priority).finally(() => inflight.delete(key));
+    inflight.set(key, job);
   }
-  return inflight.get(id);
+  return inflight.get(key);
 }
 
-module.exports = { buildLine, audioFor, speakableName, BLESSINGS, ACTIONS };
+// ---- lines -----------------------------------------------------------------
+
+// Returns the clips to play in order: [name, tail], or null for an unknown feature.
+function buildParts(kind, name, random = Math.random) {
+  const action = ACTIONS[kind];
+  if (!action) return null;
+  const candidates = BLESSINGS.map((b) => tailText(action, b));
+  const ready = candidates.filter(isReady);
+  const pool = ready.length ? ready : candidates; // prefer a blessing that is already synthesized
+  const tail = pool[Math.floor(random() * pool.length)];
+  let nameText = speakableName(name);
+  if (!isReady(nameText) && backlog() >= NAME_BACKLOG_LIMIT) nameText = GENERIC_NAME;
+  return [nameText, tail];
+}
+
+// Synthesizes every tail (and the generic name) in the background so live events find them ready.
+async function prewarm() {
+  if (PROVIDER !== 'omnivoice') return;
+  try {
+    const health = await fetch(`${OMNI_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (!health.ok) throw new Error(`health ${health.status}`);
+  } catch (err) {
+    console.error(`[tts] omnivoice not reachable at ${OMNI_URL}; skipping warm-up (${err.message})`);
+    return;
+  }
+  const todo = [GENERIC_NAME, ...allTails()].filter((t) => !isReady(t));
+  if (!todo.length) return console.log('[tts] all spoken clips already cached');
+  console.log(`[tts] warming ${todo.length} clips in the background with voice "${OMNI_VOICE}"...`);
+  let done = 0;
+  for (const text of todo) {
+    try {
+      await audioFor(text, { priority: 'low', fallback: false });
+      done++;
+    } catch (err) {
+      console.error('[tts] warm-up stopped:', err.message);
+      return;
+    }
+  }
+  console.log(`[tts] warm-up finished (${done} clips)`);
+}
+
+module.exports = { buildParts, audioFor, prewarm, speakableName, isReady, BLESSINGS, ACTIONS, PROVIDER };

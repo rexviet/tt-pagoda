@@ -4,7 +4,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
-const { buildLine, audioFor } = require('./speech');
+const { buildParts, audioFor, prewarm } = require('./speech');
 
 const PORT = Number(process.env.PORT) || 3000;
 const LEADERBOARD_SIZE = 3;
@@ -53,17 +53,20 @@ function setStatus(next) {
   io.emit('status', status);
 }
 
-// Registers a spoken line for an overlay event and starts synthesizing it so it is ready when the overlay asks.
+// Registers the clips of a spoken line (name, then fixed tail) and starts synthesizing them so they are
+// ready when the overlay asks. Returns the clip ids in play order.
 function speechFor(kind, name) {
   if (!voiceEnabled) return null;
-  const text = buildLine(kind, name);
-  if (!text) return null;
-  const id = require('crypto').createHash('sha1').update(text).digest('hex').slice(0, 20);
-  lines.delete(id);
-  lines.set(id, text);
-  if (lines.size > MAX_LINES) lines.delete(lines.keys().next().value);
-  audioFor(text).catch(() => {}); // failure is reported when the overlay requests the audio
-  return id;
+  const parts = buildParts(kind, name);
+  if (!parts) return null;
+  return parts.map((text) => {
+    const id = require('crypto').createHash('sha1').update(text).digest('hex').slice(0, 20);
+    lines.delete(id);
+    lines.set(id, text);
+    if (lines.size > MAX_LINES) lines.delete(lines.keys().next().value);
+    audioFor(text).catch(() => {}); // failure is reported when the overlay requests the audio
+    return id;
+  });
 }
 
 function emitLeaderboard() {
@@ -223,6 +226,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Admin:   http://localhost:${PORT}/admin`);
   console.log(`Overlay: http://localhost:${PORT}/overlay  (OBS Browser Source 1080x1920)`);
+  if (process.env.TTS_PREWARM !== '0') prewarm();
 });
 
 process.on('SIGINT', async () => {
