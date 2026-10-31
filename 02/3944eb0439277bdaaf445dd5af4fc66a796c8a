@@ -1,0 +1,26 @@
+public/overlay.js
+  s_56a6e42b43e569::t_995697a06d4a65 197-199
+  s_56a6e42b43e569::t_94af5ae8b5cf23 171
+  s_56a6e42b43e569::t_0043f214f99d68 168-170
+  s_56a6e42b43e569::t_5e719d2b1f00ca 172-173
+  s_56a6e42b43e569::t_6ecfdd978d5a43 195-196
+  s_56a6e42b43e569::t_e71a8d4dad73a8 200-202
+scripts/cut-sprites.py
+  s_56a6e42b43e569::t_cb737c77cdcb0f 9-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "023944eb0439277bdaaf445dd5af4fc66a796c8a",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
