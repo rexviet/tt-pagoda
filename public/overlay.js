@@ -505,6 +505,36 @@
     drawBoard([]);
   }
 
+  // ---- spoken lines (one at a time, so overlapping gifts never talk over each other) ----
+  const MUTED = new URLSearchParams(location.search).has('mute'); // the admin preview stays silent
+  const MAX_PENDING_SPEECH = 4;
+  const speechQueue = [];
+  let speaking = false;
+
+  function enqueueSpeech(id) {
+    if (MUTED || !id || speechQueue.length >= MAX_PENDING_SPEECH) return;
+    speechQueue.push(id);
+    pumpSpeech();
+  }
+
+  function pumpSpeech() {
+    if (speaking || !speechQueue.length) return;
+    speaking = true;
+    const audio = new Audio(`/tts/${speechQueue.shift()}.mp3`);
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(guard);
+      speaking = false;
+      pumpSpeech();
+    };
+    const guard = setTimeout(done, 20000); // a stuck line must not silence everything after it
+    audio.addEventListener('ended', done);
+    audio.addEventListener('error', done);
+    audio.play().catch(done);
+  }
+
   // ---- event wiring --------------------------------------------------------
   const NARRATION = {
     huong: 'dâng hương, cầu bình an',
@@ -514,6 +544,7 @@
   };
 
   function onOverlayEvent(ev) {
+    if (ev.speech) enqueueSpeech(ev.speech);
     switch (ev.type) {
       case 'gift':
         if (ev.tier === 'phaphoi') { festival(ev.user).catch(() => {}); break; }
@@ -537,7 +568,7 @@
         break;
       case 'nammo': nammo(ev.count).catch(() => {}); break;
       case 'crowd': spawnCrowd(ev.count); break;
-      case 'reset': resetScene(); break;
+      case 'reset': speechQueue.length = 0; resetScene(); break;
       default: break;
     }
   }

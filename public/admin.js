@@ -4,7 +4,7 @@
   const overlayUrl = `${location.origin}/overlay`;
 
   $('overlayUrl').textContent = overlayUrl;
-  $('frame').src = '/overlay';
+  $('frame').src = '/overlay?mute=1';
   $('openOverlay').onclick = () => window.open(overlayUrl, '_blank');
 
   try { $('uniqueId').value = localStorage.getItem('tiktokUniqueId') || ''; } catch (_) { /* storage blocked */ }
@@ -38,6 +38,9 @@
       $('tierButtons').appendChild(b);
     });
   });
+
+  $('voiceOn').onchange = (e) => socket.emit('voice:set', e.target.checked);
+  socket.on('voice', (on) => { $('voiceOn').checked = on; });
 
   $('btnShare').onclick = () => socket.emit('sim:share', { user: user() });
   $('btnBubble').onclick = () => socket.emit('sim:chat', { user: user(), text: text() });

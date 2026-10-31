@@ -4,6 +4,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
+const { buildLine, audioFor } = require('./speech');
 
 const PORT = Number(process.env.PORT) || 3000;
 const LEADERBOARD_SIZE = 3;
@@ -19,9 +20,25 @@ app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'ad
 app.get('/overlay', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'overlay.html')));
 app.get('/api/tiers', (_req, res) => res.json(GIFT_TIERS));
 
+// Spoken lines: the overlay asks for /tts/<id>.mp3, the id maps back to the text announced in the overlay event.
+const lines = new Map(); // id -> text, oldest dropped first
+const MAX_LINES = 200;
+app.get('/tts/:id.mp3', async (req, res) => {
+  const text = lines.get(req.params.id);
+  if (!text) return res.sendStatus(404);
+  try {
+    const audio = await audioFor(text);
+    res.type('audio/mpeg').send(audio);
+  } catch (err) {
+    console.error('[tts] failed:', err.message);
+    res.sendStatus(502);
+  }
+});
+
 // ---- session state ---------------------------------------------------------
 
 const scores = new Map(); // uniqueId -> { name, score }
+let voiceEnabled = true;
 let connection = null;
 let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, roomId: null };
 
@@ -34,6 +51,19 @@ function leaderboard() {
 function setStatus(next) {
   status = { ...status, ...next };
   io.emit('status', status);
+}
+
+// Registers a spoken line for an overlay event and starts synthesizing it so it is ready when the overlay asks.
+function speechFor(kind, name) {
+  if (!voiceEnabled) return null;
+  const text = buildLine(kind, name);
+  if (!text) return null;
+  const id = require('crypto').createHash('sha1').update(text).digest('hex').slice(0, 20);
+  lines.delete(id);
+  lines.set(id, text);
+  if (lines.size > MAX_LINES) lines.delete(lines.keys().next().value);
+  audioFor(text).catch(() => {}); // failure is reported when the overlay requests the audio
+  return id;
 }
 
 function emitLeaderboard() {
@@ -54,7 +84,11 @@ function handleGift({ userId, name, coins, giftName, count }) {
   if (!(coins > 0)) return;
   const tier = tierForCoins(coins);
   addScore(userId, name, coins);
-  io.emit('overlay', { type: 'gift', user: name, userId, coins, giftName, count, tier: tier ? tier.id : null });
+  io.emit('overlay', {
+    type: 'gift', user: name, userId, coins, giftName, count,
+    tier: tier ? tier.id : null,
+    speech: tier ? speechFor(tier.id, name) : null,
+  });
 }
 
 function handleChat({ userId, name, text }) {
@@ -84,6 +118,11 @@ function attachTikTokHandlers(conn) {
       giftName: (data.giftDetails && data.giftDetails.giftName) || 'Quà',
       count,
     });
+  });
+
+  conn.on(WebcastEvent.SHARE, (data) => {
+    const { name } = userOf(data);
+    io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
   });
 
   conn.on(WebcastEvent.CHAT, (data) => handleChat({ ...userOf(data), text: data.comment }));
@@ -147,9 +186,11 @@ async function disconnectLive() {
 io.on('connection', (socket) => {
   socket.emit('status', status);
   socket.emit('leaderboard', leaderboard());
+  socket.emit('voice', voiceEnabled);
 
   socket.on('live:connect', (uniqueId) => connectLive(uniqueId));
   socket.on('live:disconnect', () => disconnectLive());
+  socket.on('voice:set', (on) => { voiceEnabled = !!on; io.emit('voice', voiceEnabled); });
 
   socket.on('sim:gift', ({ user, tierId, text }) => {
     const tier = GIFT_TIERS.find((t) => t.id === tierId);
@@ -166,7 +207,7 @@ io.on('connection', (socket) => {
 
   socket.on('sim:share', ({ user }) => {
     const name = String(user || 'Khách').slice(0, 30);
-    io.emit('overlay', { type: 'share', user: name });
+    io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
   });
 
   socket.on('crowd:nammo', (n) => io.emit('overlay', { type: 'nammo', count: Math.min(Number(n) || 8, 20) }));
