@@ -517,10 +517,27 @@
     pumpSpeech();
   }
 
+  // A normal browser tab refuses to play sound until the page has been clicked once; OBS does not.
+  // When that happens, keep the line and show a button instead of staying silent.
+  let unlockHint = null;
+  function showUnlockHint() {
+    if (unlockHint) return;
+    unlockHint = document.createElement('button');
+    unlockHint.textContent = '🔊 Bấm vào đây để bật tiếng';
+    Object.assign(unlockHint.style, {
+      position: 'fixed', left: '50%', top: '40%', transform: 'translateX(-50%)', zIndex: 10,
+      padding: '18px 28px', font: '700 28px Arial', color: '#3b0f0a', background: '#ffd77a',
+      border: '3px solid #b8872a', borderRadius: '12px', cursor: 'pointer',
+    });
+    unlockHint.onclick = () => { unlockHint.remove(); unlockHint = null; pumpSpeech(); };
+    document.body.appendChild(unlockHint);
+  }
+
   function pumpSpeech() {
-    if (speaking || !speechQueue.length) return;
+    if (speaking || !speechQueue.length || unlockHint) return;
     speaking = true;
-    const audio = new Audio(`/tts/${speechQueue.shift()}.mp3`);
+    const id = speechQueue.shift();
+    const audio = new Audio(`/tts/${id}.mp3`);
     let finished = false;
     const done = () => {
       if (finished) return;
@@ -531,8 +548,20 @@
     };
     const guard = setTimeout(done, 20000); // a stuck line must not silence everything after it
     audio.addEventListener('ended', done);
-    audio.addEventListener('error', done);
-    audio.play().catch(done);
+    audio.addEventListener('error', () => { console.warn('[speech] audio failed to load', id); done(); });
+    audio.play().catch((err) => {
+      if (err && err.name === 'NotAllowedError') {
+        console.warn('[speech] browser blocked autoplay; click the page to enable sound');
+        finished = true;
+        clearTimeout(guard);
+        speaking = false;
+        speechQueue.unshift(id);
+        showUnlockHint();
+      } else {
+        console.warn('[speech] play failed:', err && err.message);
+        done();
+      }
+    });
   }
 
   // ---- event wiring --------------------------------------------------------
