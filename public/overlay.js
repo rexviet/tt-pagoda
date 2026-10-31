@@ -226,7 +226,7 @@
   const baseOf = (pose) => pose.replace(/up2?$/, '');
   // A cast whose frames all share one scale (its pose images are cut from one drawing size) is drawn at this many
   // design pixels per image pixel, instead of the per-pose heights above.
-  const PIXEL_SCALE = { devotee: 1.2, brown: 0.5, pink: 0.55 }; // brown and pink are cut ~2x larger than devotee (scripts/cut-white-bg.py, cut-green-bg.py)
+  const PIXEL_SCALE = { devotee: 1.2, brown: 0.55, pink: 0.55 }; // brown and pink are cut ~2x larger than devotee (scripts/cut-white-bg.py, cut-green-bg.py)
   const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
