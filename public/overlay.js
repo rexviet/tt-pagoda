@@ -1099,7 +1099,7 @@
   }
 
   function onOverlayEvent(ev) {
-    const queued = ev.type === 'gift' && ev.tier && ev.tier !== 'phaphoi'; // a queued gift speaks when its turn comes
+    const queued = (ev.type === 'gift' && ev.tier && ev.tier !== 'phaphoi') || ev.type === 'fortune'; // a queued gift or fortune speaks when its turn comes
     if (ev.speech && !queued) enqueueSpeech(ev.speech);
     switch (ev.type) {
       case 'gift':
