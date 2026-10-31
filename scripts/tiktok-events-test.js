@@ -22,7 +22,7 @@ server.listen(0, async () => {
 
   let out = await fire('share', { user: user('Xi Trum') });
   assert.deepStrictEqual(out.map((e) => [e.type, e.user]), [['share', 'Xi Trum']], 'a share event reaches the overlay');
-  assert.ok(Array.isArray(out[0].speech), 'a share is spoken');
+  assert.ok(!out[0].speech, 'a share is shown but not spoken');
 
   out = await fire('social', { user: user('Ban A'), common: { displayText: { key: 'pm_mt_guidance_share' } } });
   assert.deepStrictEqual(out.map((e) => e.type), ['share'], 'a social notice whose key says share counts as a share');

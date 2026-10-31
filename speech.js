@@ -41,7 +41,6 @@ const ACTIONS = {
   tambao: 'đã lên bục Tam Bảo tặng công đức',
   hoadang: 'đã thả đèn hoa đăng',
   phaphoi: 'đã khai Pháp Hội Vạn Phật',
-  share: 'đã chia sẻ buổi lễ',
 };
 
 const BLESSINGS = [

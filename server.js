@@ -195,7 +195,7 @@ function attachTikTokHandlers(conn) {
   const announceShare = (data) => {
     const { name } = userOf(data);
     console.log(`[tiktok] share from ${name}`);
-    io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
+    io.emit('overlay', { type: 'share', user: name }); // a share only shows the banner: no spoken line, no voice budget used
   };
   const looksLikeShare = (data) => {
     const text = `${data?.common?.displayText?.key || ''} ${data?.common?.displayText?.defaultPattern || ''}`;
@@ -325,7 +325,7 @@ io.on('connection', (socket) => {
 
   socket.on('sim:share', ({ user }) => {
     const name = String(user || 'Khách').slice(0, 30);
-    io.emit('overlay', { type: 'share', user: name, speech: speechFor('share', name) });
+    io.emit('overlay', { type: 'share', user: name }); // a share only shows the banner: no spoken line, no voice budget used
   });
 
   socket.on('crowd:nammo', (n) => io.emit('overlay', { type: 'nammo', count: Math.min(Number(n) || 8, 20) }));

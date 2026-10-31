@@ -59,13 +59,12 @@ async function checkSpeech() {
     [true, true, true, false],
     'three gifts are spoken, the fourth is shown silently',
   );
-  assert.strictEqual(events.find((e) => e.type === 'share').speech, null, 'a share is not spoken while the bucket is nearly empty');
-  await new Promise((r) => setTimeout(r, REFILL_MS * 2 + 300)); // two tokens are back: a share may speak again
+  assert.ok(!events.find((e) => e.type === 'share').speech, 'a share is never spoken');
 
   events.length = 0;
   s.emit('sim:share', { user: 'C' });
   await new Promise((r) => setTimeout(r, 200));
-  assert.strictEqual(Array.isArray(events.find((e) => e.type === 'share').speech), true, 'share is spoken');
+  assert.ok(!events.find((e) => e.type === 'share').speech, 'a share is shown but not spoken');
 
   s.emit('voice:set', false);
   await new Promise((r) => setTimeout(r, 100));

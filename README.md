@@ -70,7 +70,7 @@ ZeroTTS không tự tạo giọng từ file thu: bạn tải đoạn thu mẫu l
 
 ### Phòng đông, quà đến dồn dập
 
-Một câu lời chúc mất khoảng 2 giây để tạo (nhanh hơn khi máy rảnh) và 4 giây để đọc, nên không thể đọc hết mọi quà và chia sẻ khi phòng đông. Tool dùng một "xô suất": tối đa 3 câu liên tiếp, sau đó mỗi `SPEECH_REFILL_MS` (mặc định 4000 ms) được thêm một câu. Chia sẻ chỉ được đọc khi còn ít nhất 2 suất, nên quà luôn được ưu tiên. Sự kiện không có giọng vẫn hiện hình trên overlay, chỉ là im lặng.
+Một câu lời chúc mất khoảng 2 giây để tạo (nhanh hơn khi máy rảnh) và 4 giây để đọc, nên không thể đọc hết mọi quà và chia sẻ khi phòng đông. Tool dùng một "xô suất": tối đa 3 câu liên tiếp, sau đó mỗi `SPEECH_REFILL_MS` (mặc định 4000 ms) được thêm một câu. Sự kiện không có giọng vẫn hiện hình trên overlay, chỉ là im lặng.
 Câu chờ quá 8 giây thì bị bỏ (không đọc muộn bằng giọng khác), worker bỏ qua câu đã quá hạn thay vì xử lý, và tối đa 4 câu chờ worker cùng lúc. Tắt server thì worker cũng tắt.
 
 ## Bộ nhân vật
