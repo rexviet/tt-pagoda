@@ -175,6 +175,8 @@ Mỗi lần restart server phải bấm **Kết nối Live** lại. Mỗi quà n
 
 Trước khi lên sóng thật, bấm **Làm Mới Phiên Live** để xóa bảng xếp hạng thử.
 
+**Người rời phòng:** khi ai đó thoát, nhân vật của họ biến mất. Nếu TikTok không báo ai vừa thoát (thường là vậy), overlay dựa vào số người xem của phòng: khi số nhân vật nhiều hơn số người xem, những người im lặng lâu nhất bị coi là đã rời. Top 6 trên đệm và người đang chờ lạy được giữ lại; ai quay lại hoặc tặng quà sẽ có nhân vật mới. Cách này là ước lượng, chưa được thử trên phòng live thật.
+
 ### Phát từ điện thoại (nếu tài khoản chưa dùng được LIVE Studio)
 TikTok hạn chế phát từ máy tính với một số tài khoản. Khi đó có thể mở overlay trên điện thoại cùng Wi-Fi (`http://<IP máy>:3000/overlay?sound=1`) rồi phát màn hình. Cách này chưa được kiểm chứng đầy đủ, nhất là phần âm thanh.
 

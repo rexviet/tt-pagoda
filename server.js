@@ -214,8 +214,15 @@ function attachTikTokHandlers(conn) {
 
   conn.on(WebcastEvent.MEMBER, (data) => {
     if (data.action === 3) return; // a subscription notice, not someone walking in
+    if (data.action === 2) return io.emit('overlay', { type: 'leave', userId: userOf(data).userId }); // someone left the room
     const { userId, name } = userOf(data);
     io.emit('overlay', { type: 'join', user: name, userId });
+  });
+
+  // The room reports its viewer count now and then; the overlay uses it to retire disciples whose owners have gone.
+  conn.on(WebcastEvent.ROOM_USER, (data) => {
+    const count = Number(data?.viewerCount ?? data?.viewer_count);
+    if (Number.isFinite(count)) io.emit('overlay', { type: 'viewers', count });
   });
 
   conn.on(WebcastEvent.CHAT, (data) => handleChat({ ...userOf(data), text: data.comment }));

@@ -374,11 +374,41 @@
 
   function findOrCreateFigure(name, userId) {
     let fig = figures.find((f) => f.userId === userId);
-    if (fig) return fig;
+    if (fig) { fig.leaving = false; fig.lastSeen = performance.now(); return fig; }
     const fig2 = makeFigure(name, userId, CENTER_X + (Math.random() - 0.5) * 160, H - 20);
     fig2.fresh = true;
+    fig2.lastSeen = performance.now();
     return fig2;
   }
+
+  // ---- people leaving ---------------------------------------------------------------------------
+  // A viewer who leaves the room loses their disciple. The top six on the cushions stay (they are on the ranking), and so
+  // does anyone with a prayer on stage or waiting in the queue; those go once they are free. Ambient figures are not people.
+  const isReal = (f) => !f.ambient && f.userId;
+  const inPrayer = (f) => f.busy || (onStage && onStage.userId === f.userId) || offerQueue.some((e) => e.userId === f.userId);
+
+  function markLeaving(userId) {
+    const fig = figures.find((f) => f.userId === userId);
+    if (fig && isReal(fig)) fig.leaving = true;
+  }
+
+  // TikTok seldom announces departures, but it does report how many people are in the room. If more of our disciples
+  // stand in the hall than there are viewers, the ones who have been silent the longest are taken to have left.
+  function reconcileViewers(count) {
+    if (!(count >= 0)) return;
+    const real = figures.filter((f) => isReal(f) && !f.leaving);
+    const excess = real.length - count;
+    if (excess <= 0) return;
+    real.filter((f) => !f.vipRank).sort((a, b) => (a.lastSeen || 0) - (b.lastSeen || 0)).slice(0, excess).forEach((f) => { f.leaving = true; });
+  }
+
+  window.__crowd = () => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
+
+  setInterval(() => {
+    for (const f of figures.slice()) {
+      if (f.leaving && !f.vipRank && !inPrayer(f)) removeFigure(f);
+    }
+  }, 1000);
 
   async function walkTo(fig, x, y, speed = 260) {
     const dx = x - fig.c.x, dy = y - fig.c.y;
@@ -1035,6 +1065,8 @@
       case 'join':
         welcome(findOrCreateFigure(ev.user, ev.userId));
         break;
+      case 'leave': markLeaving(ev.userId); break;
+      case 'viewers': reconcileViewers(ev.count); break;
       case 'share':
         showBanner(`${ev.user} đã chia sẻ buổi lễ 🙏`, 3500);
         break;

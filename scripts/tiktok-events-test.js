@@ -36,6 +36,13 @@ server.listen(0, async () => {
   out = await fire('member', { user: user('Vi Khach'), action: 1 });
   assert.deepStrictEqual(out.map((e) => [e.type, e.user]), [['join', 'Vi Khach']], 'a viewer joining reaches the overlay');
 
+  out = await fire('member', { user: user('Vi Khach'), action: 2 });
+  assert.deepStrictEqual(out.map((e) => e.type), ['leave'], 'a viewer leaving reaches the overlay');
+  assert.ok(out[0].userId, 'the leave names who left');
+
+  out = await fire('roomUser', { viewerCount: 7 });
+  assert.deepStrictEqual(out.map((e) => [e.type, e.count]), [['viewers', 7]], 'the room viewer count reaches the overlay');
+
   out = await fire('member', { user: user('Ai Do'), action: 3 });
   assert.deepStrictEqual(out, [], 'a subscription notice is not a join');
 
