@@ -1,0 +1,29 @@
+tts_worker.py
+  s_56a6e42b43e569::t_a9dd1affd63cac 1-109
+.env.example
+  s_56a6e42b43e569::t_8e0f8bf197cee6 2-4
+.gitignore
+  s_56a6e42b43e569::t_5733053bbb4dd9 7-9
+README.md
+  s_56a6e42b43e569::t_b2af9dfc1c48c0 52-65
+scripts/tts-check.js
+  s_56a6e42b43e569::t_28a9133b3200b7 22
+speech.js
+  s_56a6e42b43e569::t_ddd8281cd1952d 4-6,17-18,21,27-31,158-226,232,261-269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bda89dc68f140dd3e4117e286b8418dc334e3300",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
