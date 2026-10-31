@@ -3,11 +3,14 @@
 (() => {
   const W = 1080, H = 1920;
   const CENTER_X = W / 2;
-  const MAX_FIGURES = 600; // a safety cap for the renderer, above the number of standing places; beyond it the oldest idle disciple is retired
+  // ?lite=1 is for streaming through TikTok LIVE Studio or a weak machine: no antialiasing, 30 frames a second, a smaller
+  // background and far fewer disciples on screen, so the page stays smooth and the encoder spends its bits on what matters.
+  const LITE = new URLSearchParams(location.search).get('lite') === '1';
+  const MAX_FIGURES = LITE ? 60 : 600; // a safety cap for the renderer, above the number of standing places; beyond it the oldest idle disciple is retired
+  const LITE_AMBIENT_MAX = 30; // ambient crowd cap in lite mode
 
-
-
-  const app = new PIXI.Application({ width: W, height: H, backgroundAlpha: 0, antialias: true });
+  const app = new PIXI.Application({ width: W, height: H, backgroundAlpha: 0, antialias: !LITE });
+  if (LITE) app.ticker.maxFPS = 30;
   const stageEl = document.getElementById('stage');
   stageEl.appendChild(app.view);
 
@@ -122,7 +125,7 @@
 
   async function loadBackground() {
     try {
-      const tex = await PIXI.Assets.load('/assets/background.png');
+      const tex = await PIXI.Assets.load(LITE ? '/assets/background-lite.jpg' : '/assets/background.png');
       const sp = new PIXI.Sprite(tex);
       const s = Math.max(W / tex.width, H / tex.height);
       sp.scale.set(s);
@@ -293,7 +296,7 @@
 
   function trimFigures() {
     while (figures.length > MAX_FIGURES) {
-      const idx = figures.findIndex((f) => !f.busy);
+      const idx = figures.findIndex((f) => !f.busy && !f.vipRank);
       if (idx < 0) return;
       removeFigure(figures[idx]);
     }
@@ -994,7 +997,7 @@
   }
 
   function setAmbientCrowd(n) {
-    ambientTarget = Math.max(0, Math.min(Number(n) || 0, slots.length - 20));
+    ambientTarget = Math.max(0, Math.min(Number(n) || 0, slots.length - 20, LITE ? LITE_AMBIENT_MAX : Infinity));
     settleAmbient();
   }
 

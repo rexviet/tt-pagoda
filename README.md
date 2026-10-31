@@ -155,7 +155,9 @@ Khung hình là **dọc 1080×1920**.
 3. Tick **Control audio via OBS** để giọng và nhạc đi vào stream. Bỏ tick "Shutdown source when not visible".
 
 ### TikTok LIVE Studio
-Thêm nguồn **Link** với địa chỉ overlay **có đuôi `?sound=1`**, kích thước tùy chỉnh 1080×1920. Nếu Studio không truy cập được máy chạy server, dùng ngrok.
+Thêm nguồn **Link** với địa chỉ overlay **có đuôi `?sound=1&lite=1`**, kích thước tùy chỉnh 1080×1920. Nếu Studio không truy cập được máy chạy server, dùng ngrok.
+
+`lite=1` là **chế độ nhẹ** cho lúc live: tắt khử răng cưa, giới hạn 30 khung hình/giây, dùng ảnh nền nhỏ hơn và chỉ vẽ tối đa khoảng 60 phật tử (đám đông nền tối đa 30; top 6 trên đệm luôn được giữ). Dùng khi hình bị giật. Nếu hình bị mờ thì thường do TikTok nén lại luồng: đặt độ phân giải và bitrate cao nhất trong Studio và xem thử trên Wi-Fi trước khi kết luận. Sau khi cập nhật code, tắt nguồn rồi thêm lại để Studio bỏ bản cũ trong bộ nhớ đệm.
 
 > **Cảnh báo ngrok:** ngrok đưa **toàn bộ server** ra Internet, kể cả `/admin` (không có mật khẩu). Ai có link đều điều khiển được. Không chia sẻ link ngrok công khai, và tắt ngrok khi không live.
 
