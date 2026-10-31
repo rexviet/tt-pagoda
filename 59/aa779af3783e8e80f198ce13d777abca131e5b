@@ -1,0 +1,38 @@
+speech.js
+  s_56a6e42b43e569::t_68a2d78d08f5b6 1-123
+  s_56a6e42b43e569::t_14080e650f1ac8 124-127
+scripts/tts-check.js
+  s_56a6e42b43e569::t_0cb8af80dd463f 1-19
+.gitignore
+  s_56a6e42b43e569::t_df207e663f2301 2
+package-lock.json
+  s_56a6e42b43e569::t_49da1ca6cc7683 13,527-546,571-594,1344-1363,1403-1411,1510-1526,1750-1763,1823-1842,2080-2098,2250-2255
+package.json
+  s_56a6e42b43e569::t_c1522cf666bf70 15
+public/admin.html
+  s_56a6e42b43e569::t_cf71d4d2188ce8 78-81
+public/admin.js
+  s_56a6e42b43e569::t_10bbad7c3c4cfc 7,42-44
+public/overlay.js
+  s_56a6e42b43e569::t_8f0b6e7a9021c9 508-537,547,571
+scripts/sim-smoke.js
+  s_56a6e42b43e569::t_28d1896f7d3db5 13-37,49-52
+server.js
+  s_56a6e42b43e569::t_a3294b0172462d 7,23-37,41,56-68,87-91,123-127,189,193,210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "59aa779af3783e8e80f198ce13d777abca131e5b",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
