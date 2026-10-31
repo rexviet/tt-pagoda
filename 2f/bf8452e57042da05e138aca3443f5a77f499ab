@@ -1,0 +1,21 @@
+scripts/cut-white-bg.py
+  s_56a6e42b43e569::t_02f4fd3a9cdde4 1-43
+public/overlay.js
+  s_56a6e42b43e569::t_81f78979dc58d0 205-209,218,264-266,277,560-561,597
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2fbf8452e57042da05e138aca3443f5a77f499ab",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
