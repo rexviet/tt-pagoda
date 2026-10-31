@@ -48,4 +48,4 @@ Thêm `&debug=1` vào link overlay (ví dụ `/overlay?sound=1&debug=1`): trang 
 ## Đám đông
 
 Phật tử đứng khắp nền điện, mỗi người một chỗ cố định (khoảng 400 chỗ). "Đám đông nền" ở trang admin (mặc định 150, biến `AMBIENT_CROWD` trong `.env`) là những Phật tử vô danh đứng sẵn để điện luôn đông; người xem thật đứng xen vào, kéo về 0 nếu chỉ muốn thấy người xem thật.
-Khi có quà, nhân vật lạy ngay tại chỗ còn máy quay phóng vào họ (mức phóng ở `SPOTLIGHT_ZOOM` trong `public/overlay.js`). Tên chỉ hiện với người đang vào phòng, chat hoặc tặng quà.
+Khi có quà, nhân vật chạy thẳng lên sát bàn thờ, máy quay lấy khung bàn thờ và tượng Phật (`ALTAR_VIEW` trong `public/overlay.js`) còn đám đông mờ đi để chỉ thấy người đó. Mỗi lần chỉ một người; quà đến dồn thì xếp hàng, quá 3 người chờ thì người thừa chỉ cúi lạy tại chỗ. Tên chỉ hiện với người đang vào phòng, chat hoặc tặng quà.

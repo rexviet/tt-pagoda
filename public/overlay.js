@@ -35,23 +35,26 @@
   const world = new PIXI.Container();
   app.stage.addChild(world);
   const layers = {};
-  ['bg', 'floor', 'fx', 'figures', 'top', 'hud'].forEach((n) => {
+  ['bg', 'floor', 'fx', 'figures', 'hero', 'top', 'hud'].forEach((n) => {
     layers[n] = new PIXI.Container();
     (n === 'hud' ? app.stage : world).addChild(layers[n]);
   });
   layers.figures.sortableChildren = true;
 
-  // ---- camera: close-up on whoever is bringing a gift --------------------------
-  // A spotlight asks the camera to follow one disciple at a given zoom. The latest active spotlight wins; when none
-  // is left the camera eases back to the whole hall (zoom 1 shows exactly the original framing).
-  const SPOTLIGHT_ZOOM = { huong: 2.4, buc: 2.6, tambao: 2.8, hoadang: 2.2 };
+  // ---- camera: the altar shot --------------------------------------------------
+  // While someone brings a gift the camera frames the altar and the Buddha with that one disciple kneeling in front, and
+  // the rest of the crowd fades out so nobody else is in the shot. The framing keeps the Buddha's head and the disciple
+  // inside the band TikTok leaves free (its header covers the top ~14% of the screen, its chat and buttons the bottom ~16%).
+  // When no shot is active the camera eases back to the whole hall (zoom 1 is exactly the original framing).
+  const ALTAR_SPOT = { x: 540, y: 1195 }; // where a gift giver kneels, right in front of the altar
+  const ALTAR_VIEW = { zoom: 1.7, x: 540, y: 839 }; // world point at the middle of the screen, and the zoom
   const CAMERA_SETTLE_MS = 260; // smaller = snappier moves
-  const FOCUS_SCREEN_Y = 0.55; // where the followed disciple sits on screen, a little below the middle
+  const CROWD_FADE_MS = 200;
   const camera = { zoom: 1, x: W / 2, y: H / 2 };
   const spotlights = [];
 
-  function spotlight(fig, zoom) {
-    const sp = { fig, zoom };
+  function spotlight(view) {
+    const sp = { view };
     spotlights.push(sp);
     return sp;
   }
@@ -62,11 +65,9 @@
 
   app.ticker.add(() => {
     const sp = spotlights[spotlights.length - 1];
-    let target = { zoom: 1, x: W / 2, y: H / 2 };
-    if (sp && !sp.fig.c.destroyed) {
-      target = { zoom: sp.zoom, x: sp.fig.c.x, y: sp.fig.c.y - (sp.fig.h * sp.fig.c.scale.y) / 2 };
-    }
-    const k = 1 - Math.exp(-app.ticker.deltaMS / CAMERA_SETTLE_MS);
+    const target = sp ? sp.view : { zoom: 1, x: W / 2, y: H / 2 };
+    const dt = app.ticker.deltaMS;
+    const k = 1 - Math.exp(-dt / CAMERA_SETTLE_MS);
     camera.zoom += (target.zoom - camera.zoom) * k;
     camera.x += (target.x - camera.x) * k;
     camera.y += (target.y - camera.y) * k;
@@ -75,7 +76,11 @@
     // Keep the view inside the picture: the offset can never reveal anything outside the hall.
     const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
     world.scale.set(z);
-    world.position.set(clamp(W / 2 - camera.x * z, W - W * z, 0), clamp(H * FOCUS_SCREEN_Y - camera.y * z, H - H * z, 0));
+    world.position.set(clamp(W / 2 - camera.x * z, W - W * z, 0), clamp(H / 2 - camera.y * z, H - H * z, 0));
+    // The crowd fades out while a shot is on; the disciple in the shot stands in the hero layer, which stays visible.
+    const fade = 1 - Math.exp(-dt / CROWD_FADE_MS);
+    layers.figures.alpha += ((sp ? 0 : 1) - layers.figures.alpha) * fade;
+    if (!sp && layers.figures.alpha > 0.995) layers.figures.alpha = 1;
   });
 
   // ---- tiny tween helper ---------------------------------------------------
@@ -273,7 +278,7 @@
     c.zIndex = y;
     const fig = {
       c, body, label, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
-      outfit, jitter: 0.92 + Math.random() * 0.16,
+      outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1,
     };
     setPose(fig, 'kneelup');
     c.scale.set(perspective(y) * fig.jitter);
@@ -309,8 +314,8 @@
     const now = performance.now();
     for (let i = figures.length - 1; i >= 0; i--) {
       const f = figures[i];
-      f.c.scale.set(perspective(f.c.y) * f.jitter);
-      f.c.zIndex = f.spot ? 1e6 : f.c.y; // whoever the camera is on is drawn in front of the crowd
+      f.c.scale.set(perspective(f.c.y) * f.jitter * f.heroScale);
+      f.c.zIndex = f.c.y;
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
         tilt = Math.sin(now / 130) * 0.07;
@@ -493,31 +498,67 @@
   }
 
   // ---- gift choreography ---------------------------------------------------
-  // A disciple who brings a gift prays right where they stand while the camera closes in on them.
-  async function offer(user, userId, tier) {
+  // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
+  // be on at a time, so gifts take their turn; if more than a few are waiting the extra ones just bow where they stand.
+  const HERO_SCALE = 1.5; // drawn a little larger in the shot, as if closer to the camera
+  const RUN_SPEED = 520;
+  const MAX_WAITING_OFFERS = 3;
+  let offerChain = Promise.resolve();
+  let offersWaiting = 0;
+
+  function queueOffer(user, userId, tier) {
+    if (offersWaiting >= MAX_WAITING_OFFERS) return prayInPlace(user, userId, tier);
+    offersWaiting++;
+    offerChain = offerChain.then(() => offer(user, userId, tier)).catch(() => {}).finally(() => { offersWaiting--; });
+    return offerChain;
+  }
+
+  async function prayInPlace(user, userId) {
     const fig = findOrCreateFigure(user, userId);
+    if (fig.busy) return;
     fig.busy = true;
-    fig.spot = true;
-    showLabel(fig, 0); // the name stays up for the whole prayer
-    // The camera starts following at once, even while a newcomer is still walking in to their place.
-    const sp = SPOTLIGHT_ZOOM[tier] ? spotlight(fig, SPOTLIGHT_ZOOM[tier]) : null;
+    showLabel(fig, 0);
     try {
-      if (fig.fresh) { // a newcomer first walks in to their place
+      if (fig.fresh) {
         fig.fresh = false;
         const place = claimSlot(fig);
         await walkTo(fig, place.x, place.y);
       } else if (fig.arriving) {
-        await fig.arriving; // already on the way in: let them arrive before they kneel, or the walk would undo the bow
+        await fig.arriving;
       }
+      await kneel(fig, true);
+      sparks(fig.c.x, fig.c.y - fig.h * fig.c.scale.y * 0.9, 12);
+      await wait(1800);
+    } finally {
+      setPose(fig, 'kneelup');
+      fig.busy = false;
+      showLabel(fig, 2500);
+    }
+  }
+
+  async function offer(user, userId, tier) {
+    const fig = findOrCreateFigure(user, userId);
+    if (fig.busy) return;
+    fig.busy = true;
+    showLabel(fig, 0); // the name stays up for the whole prayer
+    let shot = null;
+    try {
+      claimSlot(fig); // the place to go home to
+      if (fig.fresh) fig.fresh = false; // a newcomer simply runs up from the foot of the hall
+      else if (fig.arriving) await fig.arriving; // already on the way in: let them arrive first, or two walks would fight
+      layers.hero.addChild(fig.c); // above the crowd, which is about to fade out
+      shot = spotlight(ALTAR_VIEW);
+      await walkTo(fig, ALTAR_SPOT.x + (Math.random() - 0.5) * 20, ALTAR_SPOT.y, RUN_SPEED);
+      tween(fig, { heroScale: HERO_SCALE }, 350);
       const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
       if (tier === 'huong') {
         await kneel(fig);
-        for (let i = 0; i < 6; i++) { smoke(fig.c.x, headY()); await wait(350); }
-        await bow(fig, 3);
+        for (let i = 0; i < 5; i++) { smoke(fig.c.x, headY()); await wait(350); }
+        await bow(fig, 2);
       } else if (tier === 'buc') {
         await kneel(fig, true);
         sparks(fig.c.x, headY(), 16);
-        await wait(2500);
+        await wait(3000);
       } else if (tier === 'tambao') {
         await kneel(fig, true);
         sparks(fig.c.x, headY(), 40);
@@ -530,10 +571,12 @@
         await wait(4000);
       }
     } finally {
-      if (sp) endSpotlight(sp); // the camera pulls back
+      if (shot) endSpotlight(shot); // the camera pulls back and the crowd fades in
+      tween(fig, { heroScale: 1 }, 400);
+      layers.figures.addChild(fig.c);
       fig.busy = false;
-      fig.spot = false;
-      setPose(fig, 'kneelup');
+      const home = claimSlot(fig);
+      await walkTo(fig, home.x, home.y, RUN_SPEED);
       showLabel(fig, 3000);
     }
   }
@@ -809,7 +852,7 @@
         if (ev.tier === 'phaphoi') { festival(ev.user).catch(() => {}); break; }
         if (ev.tier) {
           showBanner(`${ev.user} ${NARRATION[ev.tier]} (x${ev.count})`, 4500);
-          offer(ev.user, ev.userId, ev.tier).catch(() => {});
+          queueOffer(ev.user, ev.userId, ev.tier).catch(() => {});
         }
         break;
       case 'chat': {
