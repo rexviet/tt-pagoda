@@ -1,0 +1,19 @@
+public/overlay.js
+  s_56a6e42b43e569::t_1085043c8f65ea 38,44-50,52,56-57,68-70,79-83,281,317-318,501-516,518,520,522,527,529-552,556-557,561,574-576,578-579,855
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "42d91e07a5a03eefb690fdee93e2720580fa4f83",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
