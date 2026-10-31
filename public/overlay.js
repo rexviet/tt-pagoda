@@ -165,27 +165,51 @@
 
   // ---- figures (disciples) -------------------------------------------------
   const figures = [];
-  const ROBES = [0x7a4a3a, 0x8c2f4a, 0x5a5560, 0xb0607a, 0x6a3a2a, 0x4a4a58];
+  // Sprites live in public/assets/disciples/. kneel has two outfits, picked per disciple.
+  const SPRITES = {
+    kneelA: 'kneel-brown', kneelB: 'kneel-teal', stand: 'stand-maroon', walk: 'walk-pink', bow: 'bow-grey',
+  };
+  const POSE_HEIGHT = { kneel: 120, stand: 140, walk: 140, bow: 105 };
+  const TEX = {};
+  const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
+
+  async function loadSprites() {
+    await Promise.all(Object.entries(SPRITES).map(async ([key, file]) => {
+      TEX[key] = await PIXI.Assets.load(`/assets/disciples/${file}.png`);
+    }));
+  }
+
+  function setPose(fig, pose) {
+    const tex = pose === 'kneel' ? fig.kneelTex : TEX[pose];
+    const h = POSE_HEIGHT[pose];
+    fig.pose = pose;
+    fig.body.texture = tex;
+    fig.body.scale.set(h / tex.height);
+    fig.label.y = -h - 4;
+    fig.h = h;
+  }
+
+  function perspective(y) {
+    const t = Math.min(1, Math.max(0, (y - CARPET_TOP_Y) / (H - CARPET_TOP_Y)));
+    return FIGURE_FAR + (FIGURE_NEAR - FIGURE_FAR) * t;
+  }
 
   function makeFigure(name, userId, x, y) {
     const c = new PIXI.Container();
-    const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 4, 26, 8).endFill();
-    const body = new PIXI.Graphics();
-    const robe = ROBES[Math.floor(Math.random() * ROBES.length)];
-    // chibi: small seated robe, oversized head
-    body.beginFill(robe).drawRoundedRect(-22, -44, 44, 46, 14).endFill();
-    body.beginFill(0xd9a93a).drawRect(-22, -30, 44, 5).endFill();
-    body.beginFill(0xe9c29a).drawCircle(0, -66, 24).endFill();
-    body.beginFill(0x2a1a14).drawEllipse(0, -80, 22, 11).endFill();
-    body.beginFill(0x222222).drawCircle(-8, -64, 2.6).drawCircle(8, -64, 2.6).endFill();
-    body.beginFill(0xd98a7a, 0.7).drawCircle(-14, -58, 4).drawCircle(14, -58, 4).endFill();
-    const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 15, fill: 0xffffff, stroke: 0x000000, strokeThickness: 3 });
+    const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 2, 40, 10).endFill();
+    const body = new PIXI.Sprite(TEX.kneelA);
+    body.anchor.set(0.5, 1);
+    const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
     label.anchor.set(0.5, 1);
-    label.y = -96;
     c.addChild(shadow, body, label);
     c.position.set(x, y);
     c.zIndex = y;
-    const fig = { c, body, label, name, userId, busy: false, bornAt: performance.now(), phase: Math.random() * 6, baseY: y };
+    const fig = {
+      c, body, label, name, userId, busy: false, bornAt: performance.now(), phase: Math.random() * 6, baseY: y,
+      kneelTex: Math.random() < 0.5 ? TEX.kneelA : TEX.kneelB, jitter: 0.92 + Math.random() * 0.16,
+    };
+    setPose(fig, 'kneel');
+    c.scale.set(perspective(y) * fig.jitter);
     figures.push(fig);
     layers.figures.addChild(c);
     trimFigures();
@@ -210,6 +234,8 @@
     const now = performance.now();
     for (let i = figures.length - 1; i >= 0; i--) {
       const f = figures[i];
+      f.c.scale.set(perspective(f.c.y) * f.jitter);
+      f.c.zIndex = f.c.y;
       if (f.busy) continue;
       f.body.rotation = Math.sin(now / 900 + f.phase) * 0.025;
       if (now - f.bornAt > IDLE_LIFETIME_MS && f.userId && !f.keep) removeFigure(f);
@@ -233,23 +259,31 @@
   async function walkTo(fig, x, y, speed = 260) {
     const dx = x - fig.c.x, dy = y - fig.c.y;
     const ms = Math.max(400, (Math.hypot(dx, dy) / speed) * 1000);
+    setPose(fig, 'walk');
     const steps = tween(fig.c, { x, y }, ms, ease.inOut);
-    const bob = setInterval(() => { if (fig.c.destroyed) return clearInterval(bob); fig.body.rotation = Math.sin(performance.now() / 120) * 0.08; }, 30);
+    const bob = setInterval(() => {
+      if (fig.c.destroyed) return clearInterval(bob);
+      fig.body.rotation = Math.sin(performance.now() / 130) * 0.07;
+    }, 30);
     await steps;
     clearInterval(bob);
+    fig.body.rotation = 0;
     fig.baseY = y;
-    fig.c.zIndex = y;
+    setPose(fig, 'kneel');
   }
 
+  // deep = full prostration (side-on bow sprite); otherwise upright kneeling with palms together
   async function kneel(fig, deep = false) {
-    await tween(fig.body, { rotation: 0 }, 150);
-    await tween(fig.body.scale, { y: deep ? 0.45 : 0.62 }, 450);
+    fig.body.rotation = 0;
+    setPose(fig, deep ? 'bow' : 'kneel');
   }
-  async function stand(fig) { await tween(fig.body.scale, { y: 1 }, 400); }
+  async function stand(fig) { setPose(fig, 'stand'); await wait(350); }
   async function bow(fig, times = 3) {
     for (let i = 0; i < times; i++) {
-      await tween(fig.body, { rotation: 0.35 }, 380);
-      await tween(fig.body, { rotation: 0 }, 380);
+      setPose(fig, 'bow');
+      await wait(900);
+      setPose(fig, 'kneel');
+      await wait(600);
     }
   }
 
@@ -294,14 +328,14 @@
     const bg = new PIXI.Graphics().lineStyle(2, 0x999999).beginFill(0xffffff, 0.96).drawRoundedRect(-w / 2, -h / 2, w, h, 12).endFill();
     bg.beginFill(0xffffff, 0.96).drawPolygon([-8, h / 2 - 1, 8, h / 2 - 1, 0, h / 2 + 12]).endFill();
     bubble.addChild(bg, t);
-    bubble.position.set(fig.c.x, fig.c.y - 120 - h / 2);
+    bubble.position.set(fig.c.x, fig.c.y - (fig.h + 26) * fig.c.scale.y - h / 2);
     bubble.zIndex = 99999;
     layers.top.addChild(bubble);
     fig.bubble = bubble;
     const follow = () => {
       if (bubble.destroyed) return app.ticker.remove(follow);
       bubble.x = fig.c.x;
-      bubble.y = fig.c.y - 120 - h / 2;
+      bubble.y = fig.c.y - (fig.h + 26) * fig.c.scale.y - h / 2;
     };
     app.ticker.add(follow);
     setTimeout(() => { if (!bubble.destroyed) tween(bubble, { alpha: 0 }, 400).then(() => bubble.destroy({ children: true })); }, 5000);
@@ -404,7 +438,7 @@
       await kneel(f);
       await bow(f, 2);
       await wait(1500);
-      await stand(f);
+      setPose(f, 'kneel');
       f.busy = false;
     }));
   }
@@ -420,9 +454,9 @@
   async function nammo(n) {
     const pool = figures.filter((f) => !f.busy).sort(() => Math.random() - 0.5).slice(0, n);
     pool.forEach((f, i) => setTimeout(() => showBubble(f, NAMMO[Math.floor(Math.random() * NAMMO.length)]), i * 250));
-    for (const f of pool) { f.busy = true; kneel(f); }
+    for (const f of pool) { f.busy = true; kneel(f, true); }
     await wait(4500);
-    for (const f of pool) { await stand(f); f.busy = false; }
+    for (const f of pool) { setPose(f, 'kneel'); f.busy = false; }
   }
 
   function resetScene() {
@@ -471,9 +505,11 @@
     }
   }
 
-  drawScene();
-  drawBoard([]);
-  const socket = io();
-  socket.on('overlay', onOverlayEvent);
-  socket.on('leaderboard', drawBoard);
+  loadSprites().then(() => {
+    drawScene();
+    drawBoard([]);
+    const socket = io();
+    socket.on('overlay', onOverlayEvent);
+    socket.on('leaderboard', drawBoard);
+  });
 })();
