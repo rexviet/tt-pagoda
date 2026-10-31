@@ -202,9 +202,11 @@
   // Sprites live in public/assets/disciples/ as <pose>-<outfit>.png (poses: kneel, stand, walk, bow).
   // A disciple only ever uses sprites of its own outfit. An outfit needs kneel-<outfit>.png; any missing
   // pose falls back to the kneel sprite with a code-driven motion (bow = tilt and squash, walk = hop).
-  // Which cast stands in the hall: 'devotee' (realistic, from the rpc project, back view only) or 'brown' (chibi).
-  // ?outfits=brown on the overlay address switches the cast without touching any file.
-  const OUTFITS = (new URLSearchParams(location.search).get('outfits') || 'devotee').split(',').map((o) => o.trim()).filter(Boolean);
+  // Which outfits are loaded: 'devotee' and 'brown' are what the crowd wears (one picked at random per disciple); 'pink' is
+  // worn only by the top six on the cushions, and a disciple changes into or out of it as the ranking moves them.
+  // ?outfits=brown on the overlay address restricts the cast without touching any file.
+  const VIP_OUTFIT = 'pink';
+  const OUTFITS = (new URLSearchParams(location.search).get('outfits') || 'devotee,brown,pink').split(',').map((o) => o.trim()).filter(Boolean);
   // front poses face the camera; *up poses are seen from behind, facing the Buddha
   // Extra frames some casts have: walkup2 (the other foot), settle (sinking onto the knees), bowa/bowb/bowc (the steps of
   // a bow down to the floor). A cast without them just goes straight between kneelup and bowup.
@@ -213,7 +215,7 @@
   const baseOf = (pose) => pose.replace(/up2?$/, '');
   // A cast whose frames all share one scale (its pose images are cut from one drawing size) is drawn at this many
   // design pixels per image pixel, instead of the per-pose heights above.
-  const PIXEL_SCALE = { devotee: 1.2 };
+  const PIXEL_SCALE = { devotee: 1.2, brown: 0.5, pink: 0.5 }; // brown and pink are cut ~2x larger than devotee (scripts/cut-white-bg.py)
   const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
@@ -259,7 +261,9 @@
     const c = new PIXI.Container();
     const shadow = new PIXI.Graphics().beginFill(0x000000, 0.35).drawEllipse(0, 2, 40, 10).endFill();
     const outfits = Object.keys(TEX);
-    const outfit = outfits[Math.floor(Math.random() * outfits.length)];
+    const crowdOutfits = outfits.filter((o) => o !== VIP_OUTFIT);
+    const pool = crowdOutfits.length ? crowdOutfits : outfits;
+    const outfit = pool[Math.floor(Math.random() * pool.length)];
     const body = new PIXI.Sprite(TEX[outfit].kneel);
     body.anchor.set(0.5, 1);
     const label = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 16, fontWeight: '700', fill: 0xffffff, stroke: 0x000000, strokeThickness: 4 });
@@ -270,7 +274,7 @@
     c.zIndex = y;
     const fig = {
       c, body, label, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
-      outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1, vipScale: 1, vipRank: null,
+      outfit, crowdOutfit: outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1, vipScale: 1, vipRank: null,
     };
     setPose(fig, 'kneelup');
     c.scale.set(perspective(y) * fig.jitter);
@@ -553,6 +557,8 @@
 
   function setRankLook(fig, rank) {
     fig.vipRank = rank;
+    const wear = rank && TEX[VIP_OUTFIT] ? VIP_OUTFIT : fig.crowdOutfit;
+    if (fig.outfit !== wear) { fig.outfit = wear; setPose(fig, fig.pose); }
     fig.vipScale = rank ? VIP_SCALE : 1;
     fig.label.text = rank ? `${rank}. ${fig.name}` : fig.name;
     if (rank) showLabel(fig, 0); else showLabel(fig, 2000);
@@ -588,7 +594,7 @@
     });
   }
 
-  window.__vips = () => vipSlots.map((s, i) => ({ rank: i + 1, owner: s.owner ? s.owner.name : null, x: s.owner ? Math.round(s.owner.c.x) : null, y: s.owner ? Math.round(s.owner.c.y) : null, slotX: s.x })); // debug handle for tests
+  window.__vips = () => vipSlots.map((s, i) => ({ rank: i + 1, owner: s.owner ? s.owner.name : null, outfit: s.owner ? s.owner.outfit : null, x: s.owner ? Math.round(s.owner.c.x) : null, y: s.owner ? Math.round(s.owner.c.y) : null, slotX: s.x })); // debug handle for tests
 
   // ---- gift choreography ---------------------------------------------------
   // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
