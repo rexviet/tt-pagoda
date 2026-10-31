@@ -37,12 +37,52 @@
   fit();
 
   // ---- layers --------------------------------------------------------------
+  // Everything in the hall lives in `world`, which the camera zooms and pans; the HUD stays outside so it is never zoomed.
+  const world = new PIXI.Container();
+  app.stage.addChild(world);
   const layers = {};
   ['bg', 'floor', 'fx', 'figures', 'top', 'hud'].forEach((n) => {
     layers[n] = new PIXI.Container();
-    app.stage.addChild(layers[n]);
+    (n === 'hud' ? app.stage : world).addChild(layers[n]);
   });
   layers.figures.sortableChildren = true;
+
+  // ---- camera: close-up on whoever is bringing a gift --------------------------
+  // A spotlight asks the camera to follow one disciple at a given zoom. The latest active spotlight wins; when none
+  // is left the camera eases back to the whole hall (zoom 1 shows exactly the original framing).
+  const SPOTLIGHT_ZOOM = { huong: 2.4, buc: 2.6, tambao: 2.8, hoadang: 2.2 };
+  const CAMERA_SETTLE_MS = 260; // smaller = snappier moves
+  const FOCUS_SCREEN_Y = 0.55; // where the followed disciple sits on screen, a little below the middle
+  const camera = { zoom: 1, x: W / 2, y: H / 2 };
+  const spotlights = [];
+
+  function spotlight(fig, zoom) {
+    const sp = { fig, zoom };
+    spotlights.push(sp);
+    return sp;
+  }
+  function endSpotlight(sp) {
+    const i = spotlights.indexOf(sp);
+    if (i >= 0) spotlights.splice(i, 1);
+  }
+
+  app.ticker.add(() => {
+    const sp = spotlights[spotlights.length - 1];
+    let target = { zoom: 1, x: W / 2, y: H / 2 };
+    if (sp && !sp.fig.c.destroyed) {
+      target = { zoom: sp.zoom, x: sp.fig.c.x, y: sp.fig.c.y - (sp.fig.h * sp.fig.c.scale.y) / 2 };
+    }
+    const k = 1 - Math.exp(-app.ticker.deltaMS / CAMERA_SETTLE_MS);
+    camera.zoom += (target.zoom - camera.zoom) * k;
+    camera.x += (target.x - camera.x) * k;
+    camera.y += (target.y - camera.y) * k;
+    if (Math.abs(camera.zoom - 1) < 0.002 && target.zoom === 1) camera.zoom = 1;
+    const z = camera.zoom;
+    // Keep the view inside the picture: the offset can never reveal anything outside the hall.
+    const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+    world.scale.set(z);
+    world.position.set(clamp(W / 2 - camera.x * z, W - W * z, 0), clamp(H * FOCUS_SCREEN_Y - camera.y * z, H - H * z, 0));
+  });
 
   // ---- tiny tween helper ---------------------------------------------------
   const tweens = [];
@@ -446,6 +486,7 @@
   async function offer(user, userId, tier) {
     const fig = findOrCreateFigure(user, userId);
     fig.busy = true; fig.fresh = false;
+    const sp = SPOTLIGHT_ZOOM[tier] ? spotlight(fig, SPOTLIGHT_ZOOM[tier]) : null;
     try {
       if (tier === 'huong') {
         const s = STATIONS.huong;
@@ -474,6 +515,7 @@
         await wait(4000);
       }
     } finally {
+      if (sp) endSpotlight(sp); // the camera pulls back while the disciple walks home
       fig.busy = false;
       const spot = claimSlot(fig);
       await walkTo(fig, spot.x, spot.y);
@@ -520,6 +562,7 @@
 
   function resetScene() {
     bannerQueue.length = 0;
+    spotlights.length = 0;
     figures.splice(0).forEach((f) => f.c.destroy({ children: true }));
     slots.forEach((slot) => { slot.owner = null; });
     layers.top.removeChildren().forEach((c) => c.destroy({ children: true }));
