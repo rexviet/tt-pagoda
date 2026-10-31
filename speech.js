@@ -6,7 +6,8 @@
 //
 // Voice providers (TTS_PROVIDER):
 //   say (default)        macOS "Linh" voice, offline and instant
-//   omnivoice            VoiceStudio server, cloned voice -> OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS.
+//   omnivoice            VoiceStudio server, cloned voice -> OMNIVOICE_URL, OMNIVOICE_VOICE, OMNIVOICE_STEPS,
+//                        OMNIVOICE_API_KEY (sent as a Bearer token; keep it in the environment, never in code).
 //                        Opt-in: on the Mac's local server (device mps) it produced noise, not speech, for every
 //                        voice and language; check a clip by transcribing it before trusting this provider.
 //   edge                 Microsoft Edge neural voice (needs network, was seen dropping mid-sentence)
@@ -21,6 +22,7 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const PROVIDER = ['say', 'edge', 'omnivoice'].includes(process.env.TTS_PROVIDER) ? process.env.TTS_PROVIDER : 'say';
 const OMNI_URL = process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900';
 const OMNI_VOICE = process.env.OMNIVOICE_VOICE || 'phat-phap';
+const OMNI_KEY = process.env.OMNIVOICE_API_KEY || ''; // PIN / key for a VoiceStudio server that is not loopback
 const OMNI_STEPS = Number(process.env.OMNIVOICE_STEPS) || 8; // fewer steps = faster, rougher
 const EDGE_VOICE = process.env.TTS_VOICE || 'vi-VN-HoaiMyNeural';
 const CACHE_DIR = path.join(__dirname, '.cache', 'tts');
@@ -68,10 +70,12 @@ function speakableName(name) {
 
 // ---- synthesis -------------------------------------------------------------
 
+const omniAuth = () => (OMNI_KEY ? { Authorization: `Bearer ${OMNI_KEY}` } : {});
+
 async function synthOmni(text) {
   const res = await fetch(`${OMNI_URL}/v1/audio/speech`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...omniAuth() },
     body: JSON.stringify({
       input: text, voice: OMNI_VOICE, language: 'vi', response_format: 'mp3', num_step: OMNI_STEPS,
     }),
@@ -194,7 +198,7 @@ function buildParts(kind, name, random = Math.random) {
 async function prewarm() {
   if (PROVIDER !== 'omnivoice') return;
   try {
-    const health = await fetch(`${OMNI_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    const health = await fetch(`${OMNI_URL}/health`, { headers: omniAuth(), signal: AbortSignal.timeout(3000) });
     if (!health.ok) throw new Error(`health ${health.status}`);
   } catch (err) {
     console.error(`[tts] omnivoice not reachable at ${OMNI_URL}; skipping warm-up (${err.message})`);
