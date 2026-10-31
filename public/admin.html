@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Temple Live — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #0d1424; --card: #172036; --line: #2a3654; --text: #e8ecf5; --gold: #ffd77a;
+      --green: #12946b; --red: #d33a3a; --orange: #c9700f; --purple: #6b3fd1; --slate: #3a4660;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 16px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+    @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+    h2 { margin: 0 0 14px; font-size: 18px; color: var(--gold); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    input { flex: 1; min-width: 160px; background: #0f1830; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 15px; }
+    button { border: 0; border-radius: 8px; padding: 12px 14px; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; text-align: center; }
+    button:hover { filter: brightness(1.12); }
+    button:active { transform: translateY(1px); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .green { background: var(--green); } .red { background: var(--red); } .orange { background: var(--orange); }
+    .purple { background: var(--purple); } .slate { background: var(--slate); }
+    .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--slate); }
+    .pill.connected { background: #0d5c46; color: #7dffcf; } .pill.error { background: #5c1d1d; color: #ff9a9a; }
+    .pill.connecting { background: #5c4a0d; color: #ffd77a; }
+    .obs { background: #0a0f1c; border: 1px dashed var(--gold); border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .obs code { color: var(--gold); font-size: 15px; }
+    .preview { position: sticky; top: 16px; }
+    .frame { width: 324px; height: 576px; border-radius: 12px; border: 3px solid var(--orange); overflow: hidden; background: #000; }
+    .frame iframe { width: 1080px; height: 1920px; border: 0; transform: scale(0.3); transform-origin: 0 0; }
+    .hint { color: #8fa0c4; font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main>
+      <div class="card">
+        <div style="margin-bottom:8px">Link gắn vào OBS Browser Source (Width = <b>1080</b>, Height = <b>1920</b>):</div>
+        <div class="obs">
+          <code id="overlayUrl"></code>
+          <button class="orange" id="openOverlay">Mở Tab Overlay ↗</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>1. Kết Nối Phòng TikTok Live Thật</h2>
+        <div class="row">
+          <input id="uniqueId" placeholder="ID TikTok, ví dụ: 5677hn.madx" autocomplete="off">
+          <button class="green" id="btnConnect">Kết nối Live</button>
+          <button class="red" id="btnDisconnect">Ngắt kết nối</button>
+        </div>
+        <p style="margin:12px 0 0">Trạng thái: <span class="pill" id="status">Chưa kết nối</span></p>
+      </div>
+
+      <div class="card">
+        <h2>2. Giả Lập Nhanh Các Mốc Quà &amp; Động Tác Quỳ Lạy (Test Ngay)</h2>
+        <div class="row">
+          <input id="simUser" value="Thanh Dat" placeholder="Tên người tặng">
+          <input id="simText" value="các cụ phù hộ con sớm có người yêu" placeholder="Lời khấn (tuỳ chọn)">
+        </div>
+        <div class="grid" id="tierButtons"></div>
+        <div class="grid">
+          <button class="slate" id="btnShare" style="grid-column: 1 / -1">📣 Giả Lập Chia Sẻ Buổi Lễ</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3. Điều Khiển Đám Đông Phật Tử &amp; Bong Bóng Chat Trắng</h2>
+        <div class="grid">
+          <button class="green" id="btnBubble">💬 Bắn Bong Bóng Chat Trắng (theo tên &amp; lời khấn ở trên)</button>
+          <button class="orange" id="btnNammo">🙏 Cho 8 Phật Tử Ngẫu Nhiên Chat "nam mô" &amp; Quỳ Lạy</button>
+          <button class="purple" id="btnCrowd">👥 Tạo Đám Đông 48 Phật Tử Đứng 2 Bên Thảm Đỏ</button>
+          <button class="slate" id="btnReset">🔄 Làm Mới Phiên Live (Reset BXH &amp; Bục Quỳ)</button>
+        </div>
+        <p class="hint">Mốc quà tính theo tổng xu của một lượt tặng (đơn giá × số lượng), chỉnh ở <code>gift-tiers.js</code>.</p>
+      </div>
+    </main>
+
+    <aside class="preview">
+      <div class="card">
+        <h2>Xem trước Overlay</h2>
+        <div class="frame"><iframe id="frame" title="overlay preview"></iframe></div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
