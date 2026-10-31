@@ -1,0 +1,34 @@
+scripts/sim-smoke.js
+  s_6909455e7d0519::t_0bdc56e33b1b27 107
+  s_6909455e7d0519::t_788ade8ece8e72 24-40
+server.js
+  s_6909455e7d0519::t_dff01b8ef8e804 78
+  s_6909455e7d0519::t_98c4062a2b1a1d 135
+  s_6909455e7d0519::t_6e2d511ed85f04 101-104,137,140,321
+public/overlay.js
+  s_6909455e7d0519::t_bfa99c399b5619 692
+  s_6909455e7d0519::t_522bb02f13caef 654-657
+  s_6909455e7d0519::t_ff9950b9d90ac3 643,664,666-669,671-678,680,683-689,694-695
+  s_6909455e7d0519::t_e9328e097670ef 638-641,649-652,658-663,690-691,696-702,813,1248,1251
+scripts/overlay-board-test.js
+  s_6909455e7d0519::t_68d344ed45819e 60-61,66
+  s_6909455e7d0519::t_29981769241870 62-65
+README.md
+  s_6909455e7d0519::t_5dde08d2095550 216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5240b5e2ab01b5dce700e2dedae69707e42a3a7",
+  "prompts": {},
+  "sessions": {
+    "s_6909455e7d0519": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4e9de6ba-e374-4db4-921a-34581ad06b33",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
