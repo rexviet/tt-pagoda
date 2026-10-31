@@ -1,0 +1,33 @@
+README.md
+  s_6909455e7d0519::t_e8afb59cef0f61 57-58
+  s_6909455e7d0519::t_68c7258895d6ce 59
+server.js
+  s_6909455e7d0519::t_2c78b97d7bff22 94
+  s_6909455e7d0519::t_e520d2d774500d 86-90
+  s_6909455e7d0519::t_914293ca4ea657 91-93,98,321
+public/overlay.js
+  s_6909455e7d0519::t_020403336cf03f 298-299
+  s_6909455e7d0519::t_8b04be094829b8 341-347
+  s_6909455e7d0519::t_a2a2c38838aa3d 300,315,337,348-350,376,525-529,1220
+scripts/overlay-name-label-test.js
+  s_6909455e7d0519::t_e704ecae528b22 1-71
+  s_6909455e7d0519::t_74920b4aff8709 72-74
+.env.example
+  s_6909455e7d0519::t_dbd97660079645 15-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce6c91c183d14f1d3310893a4487d51095fd1687",
+  "prompts": {},
+  "sessions": {
+    "s_6909455e7d0519": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4e9de6ba-e374-4db4-921a-34581ad06b33",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
