@@ -1,0 +1,31 @@
+README.md
+  s_56a6e42b43e569::t_c3b0758413ec5c 178-179
+fortunes.js
+  s_56a6e42b43e569::t_8a8cf29b21a9af 1-86
+public/admin.html
+  s_56a6e42b43e569::t_37f3dcd1e7aaa7 74
+public/admin.js
+  s_56a6e42b43e569::t_bc2b8661511aa1 79
+public/overlay.js
+  s_56a6e42b43e569::t_1abd4d46bb1fff 384-432,1117,1125
+scripts/tiktok-events-test.js
+  s_56a6e42b43e569::t_792a5df769984e 39-46
+server.js
+  s_56a6e42b43e569::t_ed07ac7fe07fb2 13,102-105,145-161,165-166,351-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ca6e050b516f6e02d7998234badada695342b37",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "unknown"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
