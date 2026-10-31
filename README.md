@@ -79,3 +79,10 @@ Có hai bộ trong `public/assets/disciples/`, đặt tên `<tư thế>-<bộ>.p
 - `devotee` (mặc định): lấy từ repo `tiktok-live-temple-rpc`, người thật nhìn từ sau lưng. Bộ này có thêm khung bước chân thứ hai (`walkup2`), khung quỳ xuống (`settle`) và ba bước cúi lạy (`bowa`, `bowb`, `bowc`), nên bước đi đổi chân và cúi lạy đi từng bước xuống sàn. Vì chỉ có góc nhìn sau lưng, nhân vật về chỗ bằng cách mờ đi ở bàn thờ rồi hiện lại ở chỗ đứng, thay vì đi lùi xuống.
 - `brown`: nhân vật chibi.
 Đổi bộ bằng đuôi địa chỉ overlay: `/overlay?outfits=brown` (không cần sửa file). Thêm bộ mới: bỏ ảnh `kneelup-<tên>.png` và `kneel-<tên>.png` (bắt buộc) cùng các tư thế khác nếu có, rồi dùng `?outfits=<tên>`.
+
+## Cảnh điện: 6 đệm, điểm lạy và hàng đợi quà
+
+- **Nền:** các vị trí (`ALTAR_SPOT`, `ALTAR_VIEW`, `CUSHION_Y`, các đệm, `CARPET_TOP_Y`, `FLOOR_TOP`) trong `public/overlay.js` được đo trên `public/assets/background.png` hiện tại (1792×2400, phủ khung 1080×1920). Đổi nền thì đo và chỉnh lại các số này.
+- **Top 6 bảng xếp hạng** ngồi sẵn trên 6 đệm: hạng 1 và 2 ở hai đệm trong cùng (hạng 1 bên trái, hạng 2 bên phải), 3 và 4 ở cặp tiếp theo, 5 và 6 ở cặp ngoài cùng. Có người vượt lên thì mọi người dịch chỗ, người rớt khỏi top 6 trở về đám đông. Người ngồi đệm hiện tên kèm thứ hạng và được vẽ lớn hơn.
+- **Tặng quà:** người tặng đi lên lạy ở giữa 6 đệm, máy quay lấy khung bàn thờ và tượng Phật, đám đông mờ đi.
+- **Hàng đợi quà** (mỗi lần một người trên sân khấu): người đang chờ mà tặng thêm thì cộng dồn vào lượt chờ; quà lớn đi trước, còn lại ai đến trước đi trước; tối đa 5 người chờ (người thứ 6 trở đi chỉ cúi lạy tại chỗ); chờ quá 25 giây cũng chỉ cúi lạy tại chỗ. Banner và giọng nói bắt đầu cùng lượt lạy. Góc phải hiện "Đang chờ lạy: N". Kiểm thử: `scripts/overlay-queue-test.js`, `scripts/overlay-vip-test.js` (chạy server với `SPEECH_REFILL_MS=300`).

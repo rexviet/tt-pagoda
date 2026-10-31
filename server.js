@@ -28,7 +28,7 @@ function takeSpeechToken(kind) {
   return true;
 }
 const STREAK_IDLE_MS = Number(process.env.STREAK_IDLE_MS) || 3000;
-const LEADERBOARD_SIZE = 3;
+const LEADERBOARD_SIZE = 6; // the overlay seats the top six on the cushions before the altar
 
 const app = express();
 const server = http.createServer(app);
@@ -81,7 +81,8 @@ let connection = null;
 let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, roomId: null };
 
 function leaderboard() {
-  return [...scores.values()]
+  return [...scores.entries()]
+    .map(([userId, entry]) => ({ userId, name: entry.name, score: entry.score }))
     .sort((a, b) => b.score - a.score)
     .slice(0, LEADERBOARD_SIZE);
 }

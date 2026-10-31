@@ -46,8 +46,12 @@
   // the rest of the crowd fades out so nobody else is in the shot. The framing keeps the Buddha's head and the disciple
   // inside the band TikTok leaves free (its header covers the top ~14% of the screen, its chat and buttons the bottom ~16%).
   // When no shot is active the camera eases back to the whole hall (zoom 1 is exactly the original framing).
-  const ALTAR_SPOT = { x: 540, y: 1240 }; // where a gift giver kneels, right in front of the altar
-  const ALTAR_VIEW = { zoom: 1.7, x: 540, y: 839 }; // world point at the middle of the screen, and the zoom
+  // Measured on the current background.png (scaled to cover the 1080x1920 frame): six cushions in a row at y~1148, the carpet
+  // axis at x~548, the foot of the altar at y~1090 and the Buddha's crown at y~260. Change them if the background changes.
+  const ALTAR_SPOT = { x: 548, y: 1158 }; // where a gift giver kneels: the carpet between the six cushions
+  // The shot keeps the Buddha's crown (y 260) and the kneeling disciple (y 1158) inside the part of the screen TikTok
+  // leaves free (from about 14% to 84% of the height): the view is 1/1.4 of the frame, centred on this world point.
+  const ALTAR_VIEW = { zoom: 1.4, x: 548, y: 731 };
   const CAMERA_SETTLE_MS = 260; // smaller = snappier moves
   const CROWD_FADE_MS = 200;
   const camera = { zoom: 1, x: W / 2, y: H / 2 };
@@ -116,7 +120,7 @@
   // ---- scene (placeholder art) --------------------------------------------
   // Background art is a 1212x1298 image: scaled to cover 1080x1920 and centre-cropped.
   // Carpet in the scaled image: vanishing point y~1161, centre x=540, half-width ~77 -> ~784 at the bottom.
-  const CARPET_TOP_Y = 1161; // where the floor begins at the foot of the altar; disciples shrink towards here
+  const CARPET_TOP_Y = 1100; // where the floor begins at the foot of the altar; disciples shrink towards here
 
   function drawScene() {
     loadBackground().then((ok) => { if (!ok) drawVectorScene(); addGlow(); });
@@ -285,7 +289,7 @@
     c.zIndex = y;
     const fig = {
       c, body, label, name, userId, busy: false, phase: Math.random() * 6, baseY: y,
-      outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1,
+      outfit, jitter: 0.92 + Math.random() * 0.16, heroScale: 1, vipScale: 1, vipRank: null,
     };
     setPose(fig, 'kneelup');
     c.scale.set(perspective(y) * fig.jitter);
@@ -299,7 +303,7 @@
   function showLabel(fig, ms) {
     fig.label.visible = true;
     clearTimeout(fig.labelTimer);
-    if (ms > 0) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy) fig.label.visible = false; }, ms);
+    if (ms > 0) fig.labelTimer = setTimeout(() => { if (!fig.c.destroyed && !fig.busy && !fig.vipRank) fig.label.visible = false; }, ms);
   }
 
   function trimFigures() {
@@ -321,7 +325,7 @@
     const now = performance.now();
     for (let i = figures.length - 1; i >= 0; i--) {
       const f = figures[i];
-      f.c.scale.set(perspective(f.c.y) * f.jitter * f.heroScale);
+      f.c.scale.set(perspective(f.c.y) * f.jitter * f.heroScale * f.vipScale);
       f.c.zIndex = f.c.y;
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
@@ -340,7 +344,7 @@
   // Standing places cover the whole floor of the hall, shoulder to shoulder: rows run from the foot of the altar to the
   // bottom of the screen, and rows and neighbours are spaced in proportion to the disciple's size at that depth, so the
   // crowd gets denser towards the back. Every other row is shifted half a step. A disciple keeps its place for good.
-  const FLOOR_TOP = 1230, FLOOR_BOTTOM = 1890;
+  const FLOOR_TOP = 1265, FLOOR_BOTTOM = 1890; // the crowd starts below the cushions, which belong to the top six
   const SLOT_MARGIN_X = 46; // keep disciples clear of the screen edges
   const SLOT_SPACING = 60, SLOT_ROW_STEP = 42; // at full size; both shrink with depth
   const slots = [];
@@ -376,7 +380,7 @@
   }
 
   function releaseSlot(fig) {
-    if (fig.slot && fig.slot.owner === fig) fig.slot.owner = null;
+    if (fig.slot && fig.slot.owner === fig) fig.slot.owner = null; // works for crowd places and cushions alike
     fig.slot = null;
   }
 
@@ -530,21 +534,138 @@
     }
   }
 
+  // ---- the top six sit on the cushions ------------------------------------------------------
+  // The six cushions of the background are the places of honour. Rank 1 and 2 take the two cushions next to the carpet,
+  // 3 and 4 the next pair, 5 and 6 the outer pair (rank 1 on the left, 2 on the right, and so on). The server sends
+  // the ranking with every change; whoever enters or leaves the top six walks to the new place or back into the crowd.
+  const CUSHION_Y = 1150; // where a disciple's knees meet the cushion
+  const VIP_SCALE = 1.5; // the cushions are large, so the people on them are drawn larger than the crowd at that depth
+  const vipSlots = [382, 718, 214, 884, 65, 1024].map((x) => ({ x, y: CUSHION_Y, owner: null }));
+  const VIP_SPEED = 380;
+
+  // Walk to the figure's current slot (the latest one if it changed meanwhile). A cast that cannot walk towards the
+  // camera fades out and in again when the way is down.
+  async function moveToSlot(fig) {
+    const place = fig.slot;
+    if (!place || fig.c.destroyed) return;
+    if (place.y < fig.c.y - 6 || TEX[fig.outfit].walk) { await walkTo(fig, place.x, place.y, VIP_SPEED); return; }
+    await tween(fig.c, { alpha: 0 }, 220);
+    fig.c.position.set(place.x, place.y);
+    setPose(fig, 'kneelup');
+    await tween(fig.c, { alpha: 1 }, 220);
+  }
+
+  function relocate(fig) {
+    if (fig.busy) return; // a prayer is going on: returnHome will use the new slot
+    fig.arriving = (fig.arriving || Promise.resolve()).then(() => moveToSlot(fig)).catch(() => {}).finally(() => { fig.arriving = null; });
+  }
+
+  function setRankLook(fig, rank) {
+    fig.vipRank = rank;
+    fig.vipScale = rank ? VIP_SCALE : 1;
+    fig.label.text = rank ? `${rank}. ${fig.name}` : fig.name;
+    if (rank) showLabel(fig, 0); else showLabel(fig, 2000);
+  }
+
+  function applyVipRanks(rows) {
+    const top = (rows || []).slice(0, vipSlots.length).filter((r) => r.userId);
+    const wanted = new Map(top.map((r, i) => [r.userId, i]));
+    // 1. whoever is no longer in their place gives it up
+    for (const f of figures) {
+      if (f.vipRank && wanted.get(f.userId) !== f.vipRank - 1) {
+        releaseSlot(f);
+        setRankLook(f, null);
+        if (!wanted.has(f.userId)) { claimSlot(f); relocate(f); }
+      }
+    }
+    // 2. everyone in the top six takes their cushion
+    top.forEach((row, i) => {
+      let fig = figures.find((f) => f.userId === row.userId);
+      const fresh = !fig;
+      if (!fig) { // known to the server but not yet on this page (the page was opened later)
+        fig = makeFigure(row.name, row.userId, vipSlots[i].x, vipSlots[i].y);
+        fig.fresh = false;
+        fig.c.alpha = 0;
+        tween(fig.c, { alpha: 1 }, 500);
+      }
+      if (fig.vipRank === i + 1 && fig.slot === vipSlots[i]) return;
+      releaseSlot(fig);
+      vipSlots[i].owner = fig;
+      fig.slot = vipSlots[i];
+      setRankLook(fig, i + 1);
+      if (!fresh) relocate(fig);
+    });
+  }
+
+  window.__vips = () => vipSlots.map((s, i) => ({ rank: i + 1, owner: s.owner ? s.owner.name : null, x: s.owner ? Math.round(s.owner.c.x) : null, y: s.owner ? Math.round(s.owner.c.y) : null, slotX: s.x })); // debug handle for tests
+
   // ---- gift choreography ---------------------------------------------------
   // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
   // be on at a time, so gifts take their turn; if more than a few are waiting the extra ones just bow where they stand.
-  const HERO_SCALE = 1.5; // drawn a little larger in the shot, as if closer to the camera
+  const HERO_SCALE = 1.8; // drawn larger in the shot, as if closer to the camera
   const RUN_SPEED = 520;
-  const MAX_WAITING_OFFERS = 3;
-  let offerChain = Promise.resolve();
-  let offersWaiting = 0;
+  // ---- the gift queue ------------------------------------------------------------------------
+  // Only one gift can be on stage at a time, so the others wait their turn, under four simple rules:
+  //  1. someone who is already waiting is not queued twice: their gifts are added up and the better tier is kept;
+  //  2. bigger gifts go first, otherwise first come, first served;
+  //  3. at most OFFER_QUEUE_MAX wait; whoever would be the last in line bows where they stand instead of being lost;
+  //  4. nobody waits more than OFFER_MAX_WAIT_MS: after that they bow where they stand as well.
+  // The banner and the spoken line start with the prayer itself, so what is said matches what is on screen.
+  const OFFER_QUEUE_MAX = 5;
+  const OFFER_MAX_WAIT_MS = Number(new URLSearchParams(location.search).get('queuewait')) || 25000; // ?queuewait=<ms> overrides it (for tests)
+  const TIER_PRIORITY = { huong: 1, buc: 2, tambao: 3, hoadang: 4 };
+  const offerQueue = [];
+  let onStage = null;
+  let queueBadge = null;
 
-  function queueOffer(user, userId, tier) {
-    if (offersWaiting >= MAX_WAITING_OFFERS) return prayInPlace(user, userId, tier);
-    offersWaiting++;
-    offerChain = offerChain.then(() => offer(user, userId, tier)).catch(() => {}).finally(() => { offersWaiting--; });
-    return offerChain;
+  const offerText = (e) => `${e.user} ${NARRATION[e.tier]} (x${e.count})`;
+
+  function updateQueueBadge() {
+    if (!queueBadge) {
+      queueBadge = new PIXI.Text('', { fontFamily: 'Arial', fontSize: 20, fontWeight: '700', fill: 0xffe9a8, stroke: 0x000000, strokeThickness: 4 });
+      queueBadge.anchor.set(0.5, 0);
+      queueBadge.position.set(W - 145, 520);
+      layers.hud.addChild(queueBadge);
+    }
+    queueBadge.text = offerQueue.length ? `Đang chờ lạy: ${offerQueue.length}` : '';
   }
+
+  function bowInPlace(entry) {
+    showBanner(offerText(entry), 3500);
+    enqueueSpeech(entry.speech);
+    prayInPlace(entry.user, entry.userId).catch(() => {});
+  }
+
+  function queueOffer(ev) {
+    const waiting = offerQueue.find((e) => e.userId === ev.userId);
+    if (waiting) { // rule 1
+      waiting.count += ev.count;
+      if (TIER_PRIORITY[ev.tier] > TIER_PRIORITY[waiting.tier]) waiting.tier = ev.tier;
+      waiting.speech = waiting.speech || ev.speech || null;
+    } else {
+      offerQueue.push({ user: ev.user, userId: ev.userId, tier: ev.tier, count: ev.count, speech: ev.speech || null, queuedAt: Date.now() });
+    }
+    offerQueue.sort((x, y) => TIER_PRIORITY[y.tier] - TIER_PRIORITY[x.tier] || x.queuedAt - y.queuedAt); // rule 2
+    while (offerQueue.length > OFFER_QUEUE_MAX) bowInPlace(offerQueue.pop()); // rule 3
+    updateQueueBadge();
+    pumpOffers();
+  }
+
+  async function pumpOffers() {
+    if (onStage) return;
+    while (offerQueue.length) {
+      const entry = offerQueue.shift();
+      updateQueueBadge();
+      if (Date.now() - entry.queuedAt > OFFER_MAX_WAIT_MS) { bowInPlace(entry); continue; } // rule 4
+      onStage = entry;
+      showBanner(offerText(entry), 4500);
+      enqueueSpeech(entry.speech);
+      try { await offer(entry.user, entry.userId, entry.tier); } catch (_) { /* the page was reset during the prayer */ }
+      onStage = null;
+    }
+  }
+
+  window.__queue = () => ({ onStage: onStage ? onStage.user : null, waiting: offerQueue.map((e) => ({ user: e.user, tier: e.tier, count: e.count })), hero: layers.hero.children.length }); // debug handle for tests
 
   async function prayInPlace(user, userId) {
     const fig = findOrCreateFigure(user, userId);
@@ -582,7 +703,7 @@
       layers.hero.addChild(fig.c); // above the crowd, which is about to fade out
       shot = spotlight(ALTAR_VIEW);
       await walkTo(fig, ALTAR_SPOT.x + (Math.random() - 0.5) * 20, ALTAR_SPOT.y, RUN_SPEED);
-      tween(fig, { heroScale: HERO_SCALE }, 350);
+      tween(fig, { heroScale: HERO_SCALE / fig.vipScale }, 350); // the same size in the shot for everyone, cushion or not
       const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
       if (tier === 'huong') {
         await kneel(fig);
@@ -666,9 +787,12 @@
 
   function resetScene() {
     bannerQueue.length = 0;
+    offerQueue.length = 0;
+    updateQueueBadge();
     spotlights.length = 0;
     figures.splice(0).forEach((f) => f.c.destroy({ children: true }));
     slots.forEach((slot) => { slot.owner = null; });
+    vipSlots.forEach((slot) => { slot.owner = null; });
     layers.top.removeChildren().forEach((c) => c.destroy({ children: true }));
     layers.fx.removeChildren().forEach((c) => c.destroy({ children: true }));
     particles.length = 0;
@@ -891,14 +1015,12 @@
   }
 
   function onOverlayEvent(ev) {
-    if (ev.speech) enqueueSpeech(ev.speech);
+    const queued = ev.type === 'gift' && ev.tier && ev.tier !== 'phaphoi'; // a queued gift speaks when its turn comes
+    if (ev.speech && !queued) enqueueSpeech(ev.speech);
     switch (ev.type) {
       case 'gift':
         if (ev.tier === 'phaphoi') { festival(ev.user).catch(() => {}); break; }
-        if (ev.tier) {
-          showBanner(`${ev.user} ${NARRATION[ev.tier]} (x${ev.count})`, 4500);
-          queueOffer(ev.user, ev.userId, ev.tier).catch(() => {});
-        }
+        if (ev.tier) queueOffer(ev);
         break;
       case 'chat': {
         const fig = findOrCreateFigure(ev.user, ev.userId);
@@ -924,7 +1046,7 @@
     drawBoard([]);
     const socket = io();
     socket.on('overlay', onOverlayEvent);
-    socket.on('leaderboard', drawBoard);
+    socket.on('leaderboard', (rows) => { drawBoard(rows.slice(0, 3)); applyVipRanks(rows); });
     socket.on('music', applyMusicSettings);
     socket.on('ambient', setAmbientCrowd);
   });
