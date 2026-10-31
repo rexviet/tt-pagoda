@@ -1,3 +1,6 @@
 node_modules/
 .cache/
 .env
+# music is licensed content: keep it out of git
+public/assets/music/*
+!public/assets/music/.gitkeep

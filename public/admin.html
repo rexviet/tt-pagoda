@@ -75,6 +75,15 @@
           <button class="purple" id="btnCrowd">👥 Tạo Đám Đông 48 Phật Tử Đứng 2 Bên Thảm Đỏ</button>
           <button class="slate" id="btnReset">🔄 Làm Mới Phiên Live (Reset BXH &amp; Bục Quỳ)</button>
         </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
+          <label style="display:flex;gap:8px;align-items:center">
+            <input type="checkbox" id="musicOn" style="flex:none;min-width:0" checked>
+            Nhạc nền
+          </label>
+          <input type="range" id="musicVol" min="0" max="100" value="25" style="flex:1;min-width:140px;padding:0">
+          <span id="musicVolLabel" style="min-width:40px;text-align:right">25%</span>
+        </div>
+        <p class="hint" id="musicHint">Đang kiểm tra nhạc nền...</p>
         <label style="display:flex;gap:8px;align-items:center;margin-top:14px">
           <input type="checkbox" id="voiceOn" style="flex:none;min-width:0" checked>
           Đọc lời chúc bằng giọng nói (mỗi quà, chia sẻ đều có một câu chúc ngẫu nhiên)

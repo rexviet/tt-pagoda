@@ -10,6 +10,18 @@ let board = [];
 s.on('overlay', (e) => events.push(e));
 s.on('leaderboard', (l) => { board = l; });
 
+async function checkMusic() {
+  const list = await (await fetch(`http://localhost:${port}/api/music`)).json();
+  assert.ok(Array.isArray(list), '/api/music always answers with a list, empty when there is no music');
+  const seen = new Promise((resolve) => s.once('music', resolve));
+  s.emit('music:set', { enabled: false, volume: 7 });
+  const m = await seen;
+  assert.deepStrictEqual([m.enabled, m.volume], [false, 1], 'music settings are shared and the volume is clamped to 0..1');
+  s.emit('music:set', { enabled: true, volume: 0.25 });
+  await new Promise((r) => setTimeout(r, 100));
+  console.log(`OK: music list (${list.length} tracks) and shared settings`);
+}
+
 async function checkSpeech() {
   const spoken = events.filter((e) => e.type === 'gift');
   assert.ok(spoken.every((e) => Array.isArray(e.speech) && e.speech.length === 1), 'every gift carries one spoken line');
@@ -50,7 +62,7 @@ s.on('connect', () => {
     assert.strictEqual(events.filter((e) => e.type === 'chat').length, 1);
     assert.deepStrictEqual(board.map((r) => [r.name, r.score]), [['B', 100], ['A', 51]]);
     console.log('OK: gifts, chat and leaderboard behave as expected');
-    checkSpeech().then(() => {
+    checkSpeech().then(checkMusic).then(() => {
       s.emit('session:reset');
       setTimeout(() => process.exit(0), 200);
     }).catch((e) => { console.error('FAIL:', e.message); process.exit(1); });

@@ -42,6 +42,26 @@
   $('voiceOn').onchange = (e) => socket.emit('voice:set', e.target.checked);
   socket.on('voice', (on) => { $('voiceOn').checked = on; });
 
+  // Background music: the overlay plays it; here only on/off and the level are set.
+  let volumeTimer = null;
+  const sendMusic = () => socket.emit('music:set', { enabled: $('musicOn').checked, volume: $('musicVol').value / 100 });
+  $('musicOn').onchange = sendMusic;
+  $('musicVol').oninput = () => {
+    $('musicVolLabel').textContent = `${$('musicVol').value}%`;
+    clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(sendMusic, 120); // while dragging, send only when the slider settles
+  };
+  socket.on('music', (m) => {
+    $('musicOn').checked = m.enabled;
+    $('musicVol').value = Math.round(m.volume * 100);
+    $('musicVolLabel').textContent = `${Math.round(m.volume * 100)}%`;
+  });
+  fetch('/api/music').then((r) => r.json()).then((list) => {
+    $('musicHint').textContent = list.length
+      ? `Đang có ${list.length} bài trong public/assets/music, phát lặp lại và tự nhỏ lại khi có giọng đọc.`
+      : 'Chưa có file nhạc. Thả file mp3 vào public/assets/music rồi tải lại trang overlay; không có file thì không phát nhạc.';
+  }).catch(() => { $('musicHint').textContent = ''; });
+
   $('btnShare').onclick = () => socket.emit('sim:share', { user: user() });
   $('btnBubble').onclick = () => socket.emit('sim:chat', { user: user(), text: text() });
   $('btnNammo').onclick = () => socket.emit('crowd:nammo', 8);

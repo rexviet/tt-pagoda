@@ -3,6 +3,7 @@ const path = require('path');
 // Local settings (voice server address and PIN) live in .env, which git ignores. Load it before the modules that read env.
 try { process.loadEnvFile(path.join(__dirname, '.env')); } catch (_) { /* no .env: defaults apply */ }
 
+const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -24,6 +25,16 @@ app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'ad
 app.get('/overlay', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'overlay.html')));
 app.get('/api/tiers', (_req, res) => res.json(GIFT_TIERS));
 
+// Background music: every audio file dropped into public/assets/music is played in a loop by the overlay.
+// No files (or no folder) simply means no music.
+const MUSIC_DIR = path.join(__dirname, 'public', 'assets', 'music');
+const MUSIC_EXT = /\.(mp3|ogg|m4a|wav|webm|opus)$/i;
+app.get('/api/music', (_req, res) => {
+  let files = [];
+  try { files = fs.readdirSync(MUSIC_DIR).filter((f) => MUSIC_EXT.test(f)).sort(); } catch (_) { /* no music folder */ }
+  res.json(files.map((f) => `/assets/music/${encodeURIComponent(f)}`));
+});
+
 // Spoken lines: the overlay asks for /tts/<id>.mp3, the id maps back to the text announced in the overlay event.
 const lines = new Map(); // id -> text, oldest dropped first
 const MAX_LINES = 200;
@@ -43,6 +54,8 @@ app.get('/tts/:id.mp3', async (req, res) => {
 
 const scores = new Map(); // uniqueId -> { name, score }
 let voiceEnabled = true;
+const DEFAULT_MUSIC_VOLUME = 0.25;
+const music = { enabled: true, volume: Math.min(1, Math.max(0, Number(process.env.MUSIC_VOLUME) || DEFAULT_MUSIC_VOLUME)) };
 let connection = null;
 let status = { state: 'idle', message: 'Chưa kết nối', uniqueId: null, roomId: null };
 
@@ -194,9 +207,16 @@ io.on('connection', (socket) => {
   socket.emit('status', status);
   socket.emit('leaderboard', leaderboard());
   socket.emit('voice', voiceEnabled);
+  socket.emit('music', music);
 
   socket.on('live:connect', (uniqueId) => connectLive(uniqueId));
   socket.on('live:disconnect', () => disconnectLive());
+  socket.on('music:set', (next) => {
+    if (typeof next?.enabled === 'boolean') music.enabled = next.enabled;
+    const volume = Number(next?.volume);
+    if (Number.isFinite(volume)) music.volume = Math.min(1, Math.max(0, volume));
+    io.emit('music', music);
+  });
   socket.on('voice:set', (on) => { voiceEnabled = !!on; io.emit('voice', voiceEnabled); });
 
   socket.on('sim:gift', ({ user, tierId, text }) => {

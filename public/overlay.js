@@ -539,7 +539,7 @@
       padding: '18px 28px', font: '700 28px Arial', color: '#3b0f0a', background: '#ffd77a',
       border: '3px solid #b8872a', borderRadius: '12px', cursor: 'pointer',
     });
-    unlockHint.onclick = () => { unlockHint.remove(); unlockHint = null; pumpSpeech(); };
+    unlockHint.onclick = () => { unlockHint.remove(); unlockHint = null; pumpSpeech(); startMusic(); };
     document.body.appendChild(unlockHint);
   }
 
@@ -585,6 +585,76 @@
     playLine(speechQueue.shift()).finally(() => { speaking = false; pumpSpeech(); });
   }
 
+  // ---- background music ----------------------------------------------------
+  // Plays every file the server lists (public/assets/music) in a loop. No files means no music and no errors.
+  // The level follows the admin setting and drops while a line is being spoken, so the voice stays clear.
+  const DUCK_RATIO = 0.3; // music level while speaking, relative to the normal level
+  const MUSIC_STEP_MS = 50;
+  const music = { tracks: [], index: 0, errors: 0, enabled: true, volume: 0.25, audio: null, level: 0 };
+  window.__bgm = music; // debug handle for tests
+
+  function musicTarget() {
+    if (!music.enabled) return 0;
+    return (speaking || speechQueue.length) ? music.volume * DUCK_RATIO : music.volume;
+  }
+
+  function loadTrack() {
+    music.audio.src = music.tracks[music.index % music.tracks.length];
+  }
+
+  function onMusicBlocked(err) {
+    if (err && err.name === 'NotAllowedError') showUnlockHint();
+    else skipTrack();
+  }
+
+  function skipTrack() {
+    music.errors++;
+    if (music.errors > music.tracks.length) {
+      console.warn('[music] no track could be played; giving up');
+      return;
+    }
+    music.index = (music.index + 1) % music.tracks.length;
+    loadTrack();
+    music.audio.play().catch(onMusicBlocked);
+  }
+
+  function startMusic() {
+    if (MUTED || !music.enabled || !music.tracks.length) return;
+    if (!music.audio) {
+      music.audio = new Audio();
+      music.audio.volume = 0; // fades in from silence
+      music.audio.addEventListener('ended', () => {
+        music.index = (music.index + 1) % music.tracks.length;
+        loadTrack();
+        music.audio.play().catch(onMusicBlocked);
+      });
+      music.audio.addEventListener('error', () => { console.warn('[music] track failed to load'); skipTrack(); });
+      music.audio.addEventListener('playing', () => { music.errors = 0; });
+      loadTrack();
+    }
+    if (music.audio.paused) music.audio.play().catch(onMusicBlocked);
+  }
+
+  setInterval(() => {
+    if (!music.audio) return;
+    const target = musicTarget();
+    music.level += (target - music.level) * 0.2;
+    if (Math.abs(target - music.level) < 0.002) music.level = target;
+    music.audio.volume = Math.min(1, Math.max(0, music.level));
+  }, MUSIC_STEP_MS);
+
+  function applyMusicSettings(next) {
+    music.enabled = !!next.enabled;
+    if (Number.isFinite(next.volume)) music.volume = Math.min(1, Math.max(0, next.volume));
+    if (!music.enabled && music.audio) music.audio.pause();
+    else startMusic();
+  }
+
+  fetch('/api/music')
+    .then((r) => (r.ok ? r.json() : []))
+    .then((list) => { music.tracks = Array.isArray(list) ? list : []; startMusic(); })
+    .catch(() => { /* no music available */ });
+
   // ---- event wiring --------------------------------------------------------
   const NARRATION = {
     huong: 'dâng hương, cầu bình an',
@@ -629,5 +699,6 @@
     const socket = io();
     socket.on('overlay', onOverlayEvent);
     socket.on('leaderboard', drawBoard);
+    socket.on('music', applyMusicSettings);
   });
 })();
