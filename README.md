@@ -25,7 +25,7 @@ Cách hoạt động: một server Node nhận sự kiện từ phòng live (th�
 | Node.js 22 trở lên | server dùng `process.loadEnvFile` |
 | ffmpeg | đổi âm thanh sang MP3 cho trình duyệt (`brew install ffmpeg`) |
 | macOS (khuyên dùng) | giọng dự phòng dùng lệnh `say` của macOS; các phần khác chạy được trên máy khác |
-| `uv` + Python 3.13 | chỉ cần nếu dùng giọng ZeroTTS (`brew install uv`) |
+| `uv` + Python 3.12 | chỉ cần nếu dùng giọng ZeroTTS (`brew install uv`); dùng 3.12 chứ không phải 3.13 (xem mục sự cố) |
 | Google Chrome | chỉ cần để chạy các script kiểm thử |
 
 ## 2. Cài đặt
@@ -67,7 +67,7 @@ Mỗi quà được đọc thành một câu: "<tên> đã dâng hương, chúc 
 Một tiến trình Python giữ model trong bộ nhớ, mỗi câu mất khoảng 2 giây, không cần mạng.
 
 ```bash
-uv venv --python 3.13 tts-env
+uv venv --python 3.12 tts-env
 uv pip install --python tts-env/bin/python zerotts
 ```
 
@@ -202,6 +202,7 @@ node scripts/overlay-board-test.js 3190           # bảng hạng 7 đến 10 (c
 | `Kết nối Live` báo lỗi | Phòng chưa lên sóng, gõ sai tên tài khoản, hoặc máy chủ ký của thư viện bị giới hạn. Xem dòng lỗi trên nhãn trạng thái. |
 | Quà hiện `0 coin each` ở log | Dữ liệu quà không đúng dạng thư viện mong đợi; gửi nguyên dòng log để kiểm tra. |
 | ZeroTTS báo `External data path escapes model directory` | Model đang là cache Hugging Face toàn symlink. Dùng thư mục file thật (mục 4, cách B). |
+| Cài ZeroTTS báo `No solution found ... onnxruntime has no wheels` | Dùng Python 3.12 (`uv venv --python 3.12 tts-env`), không dùng 3.13. Gốc lỗi: bản `onnxruntime` mới nhất chỉ có cho macOS 14 trở lên, còn bản cũ hơn không có cho Python 3.13. Chạy `uname -m`: nếu ra `x86_64` trên máy chip Apple thì terminal đang chạy dưới Rosetta (Get Info, bỏ tick "Open using Rosetta"), việc này cũng làm ZeroTTS chậm. |
 | ZeroTTS lỗi hoặc chậm | Câu đó tự đọc bằng giọng macOS. Kiểm tra `ZEROTTS_VOICE` có đúng tên không (log in danh sách giọng có sẵn). |
 | Nhân vật nhỏ, lệch so với nền | Đổi nền thì các hằng số vị trí cần đo lại (mục 9). |
 | Phòng đông, ít quà được đọc | Đúng thiết kế; giảm `SPEECH_REFILL_MS` nếu muốn đọc nhiều hơn. |
