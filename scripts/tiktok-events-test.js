@@ -39,7 +39,8 @@ server.listen(0, async () => {
   out = await fire('chat', { user: user('Nguoi Xin'), comment: 'con xin gieo quẻ đầu năm ạ' });
   assert.deepStrictEqual(out.map((e) => e.type), ['chat'], 'asking for a quẻ in the chat is free talk: it draws nothing');
   out = await fire('gift', { user: user('Nguoi Xin'), giftId: '1', groupId: 'f1', repeatCount: 1, repeatEnd: 0, gift: { type: 2, diamondCount: 5, name: 'Quà' } });
-  assert.deepStrictEqual(out.map((e) => e.type), ['gift', 'fortune'], 'a 5-coin gift also draws a fortune');
+  assert.deepStrictEqual(out.map((e) => e.type), ['gift', 'fortune'], 'a 5-coin gift draws a fortune');
+  assert.ok(!out[0].speech, 'the fortune gift has no thank-you line: the card line is its only voice');
   assert.ok(out[1].fortune && out[1].fortune.poem && out[1].fortune.rank, 'the fortune card carries the grade and the poem');
   assert.strictEqual(out[1].user, 'Nguoi Xin', 'the fortune belongs to the giver');
   out = await fire('gift', { user: user('Nguoi Re'), giftId: '2', groupId: 'f2', repeatCount: 1, repeatEnd: 0, gift: { type: 2, diamondCount: 1, name: 'Quà' } });
@@ -66,7 +67,7 @@ server.listen(0, async () => {
   const settleWait = () => wait(700); // longer than STREAK_IDLE_MS, so any pending streak timer has fired
 
   out = await fire('gift', gift('Mot Lan', 'g0', 1, false, 2, 5));
-  assert.deepStrictEqual(summary(out), [[5, 'buc']], 'a one-off gift counts at once');
+  assert.deepStrictEqual(summary(out), [[5, 'que']], 'a one-off gift counts at once');
 
   out = await fire('gift', gift('Hoa Hong', 'g1', 1, false, 1, 1));
   assert.deepStrictEqual(out, [], 'a streak is not counted while it may still grow');
@@ -90,7 +91,7 @@ server.listen(0, async () => {
   assert.deepStrictEqual(summary(out), [[3, 'huong']], 'a streak that carries on after a pause only adds the new roses');
 
   out = await fire('gift', { user: user('Ban Cu'), giftId: 1, groupId: 'g5', repeatCount: 1, repeatEnd: true, giftDetails: { giftType: 2, diamondCount: 10, giftName: 'Cu' } });
-  assert.deepStrictEqual(summary(out), [[10, 'tambao']], 'the older giftDetails shape still works');
+  assert.deepStrictEqual(summary(out), [[10, 'buc']], 'the older giftDetails shape still works');
 
   out = await fire('gift', { user: user('Khong Gia'), giftId: 1, groupId: 'g4', repeatCount: 1, repeatEnd: true, gift: { type: 2, name: 'La' } });
   assert.deepStrictEqual(out, [], 'a gift without a coin value is ignored, not crashed on');

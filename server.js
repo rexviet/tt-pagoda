@@ -141,14 +141,13 @@ function handleGift({ userId, name, coins, giftName, count }) {
   io.emit('overlay', {
     type: 'gift', user: name, userId, coins, giftName, count,
     tier: tier ? tier.id : null,
-    speech: tier ? speechFor(tier.id, name) : null,
+    speech: tier && tier.id !== 'que' ? speechFor(tier.id, name) : null,
   });
-  if (coins >= FORTUNE_MIN_COINS) handleFortune({ userId, name });
+  if (tier && tier.id === 'que') handleFortune({ userId, name });
 }
 
-// A gift worth at least FORTUNE_MIN_COINS (counted like the gift tiers: the total of one gift event) also draws a fortune
-// stick: the overlay shows the card, the voice names the grade. Chatting a keyword does not: the draw has to be paid for.
-const FORTUNE_MIN_COINS = Number(process.env.FORTUNE_MIN_COINS) || 5;
+// A gift of the 'que' tier (5 coins, see gift-tiers.js) draws a fortune stick: the overlay shows the card and the voice
+// names the grade. Chatting a keyword does not: the draw has to be paid for.
 
 function handleFortune({ userId, name }) {
   const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];

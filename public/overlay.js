@@ -1113,6 +1113,7 @@
     switch (ev.type) {
       case 'gift':
         if (ev.tier === 'phaphoi') { festival(ev.user).catch(() => {}); break; }
+        if (ev.tier === 'que') { welcome(findOrCreateFigure(ev.user, ev.userId)); break; } // only a fortune: the card comes as its own event
         if (ev.tier) queueOffer(ev);
         break;
       case 'chat': {
