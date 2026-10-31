@@ -1,0 +1,22 @@
+scripts/cut-green-bg.py
+  s_56a6e42b43e569::t_cc628f9e4e29f0 1-50
+  s_56a6e42b43e569::t_70adc6f3c12f29 51-57
+public/overlay.js
+  s_56a6e42b43e569::t_c8d8a13998d509 229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99197a890ea7c54d91968515f86e6840c8caa4d1",
+  "prompts": {},
+  "sessions": {
+    "s_56a6e42b43e569": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdce4ac7-b6c5-45eb-a98c-5ebc1da4a806",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
