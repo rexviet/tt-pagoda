@@ -243,7 +243,11 @@ function attachTikTokHandlers(conn) {
     console.log(`[tiktok] social notice with display key "${key}" from ${userOf(data).name}; not treated as a share`);
   });
 
+  // Every member message is logged with the ids it carries, so a real room shows whether TikTok ever reports a departure
+  // (action 2) and whether the id on a leave matches the id the same person had when they joined.
   conn.on(WebcastEvent.MEMBER, (data) => {
+    const who = data?.user || {};
+    console.log(`[tiktok] member action=${data?.action} name=${JSON.stringify(who.nickname)} uniqueId=${JSON.stringify(who.uniqueId)} userId=${JSON.stringify(String(who.userId ?? ''))} -> id used: ${userOf(data).userId}`);
     if (data.action === 3) return; // a subscription notice, not someone walking in
     if (data.action === 2) return io.emit('overlay', { type: 'leave', userId: userOf(data).userId }); // someone left the room
     const { userId, name } = userOf(data);
@@ -253,10 +257,19 @@ function attachTikTokHandlers(conn) {
   // The room reports its viewer count now and then; the overlay uses it to retire disciples whose owners have gone.
   conn.on(WebcastEvent.ROOM_USER, (data) => {
     const count = Number(data?.viewerCount ?? data?.viewer_count);
+    console.log(`[tiktok] room viewer count: ${data?.viewerCount ?? data?.viewer_count}`);
     if (Number.isFinite(count)) io.emit('overlay', { type: 'viewers', count });
   });
 
-  conn.on(WebcastEvent.CHAT, (data) => handleChat({ ...userOf(data), text: data.comment }));
+  // The text is `comment` in the v3 message schema; the other names are fallbacks. A chat that arrives without any text is
+  // logged with the fields it did carry, so a change in what TikTok sends shows up in the console instead of silently.
+  conn.on(WebcastEvent.CHAT, (data) => {
+    const { userId, name } = userOf(data);
+    const text = data?.comment ?? data?.content ?? data?.text ?? '';
+    console.log(`[tiktok] chat from ${name}: ${JSON.stringify(String(text).slice(0, 60))}`);
+    if (!text) console.warn(`[tiktok] chat from ${name} has no text; fields: ${Object.keys(data || {}).join(', ')}`);
+    handleChat({ userId, name, text });
+  });
 
   conn.on(WebcastEvent.STREAM_END, () => {
     setStatus({ state: 'idle', message: 'Phiên live đã kết thúc', roomId: null });
