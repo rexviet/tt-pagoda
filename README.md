@@ -52,7 +52,7 @@ cp .env.example .env
 | `ZEROTTS_VOICE` | tên hoặc mã giọng ZeroTTS | `maichi` |
 | `OMNIVOICE_URL`, `OMNIVOICE_VOICE`, `OMNIVOICE_PIN` | server VoiceStudio (nếu dùng) | xem file mẫu |
 | `AMBIENT_CROWD` | số Phật tử vô danh đứng sẵn (0 đến 350) | 50 |
-| `COLOR_OUTFITS` | `0` = ai cũng mặc áo xám, không có áo hồng (top 6) và áo nâu (đám đông) | 1 |
+| `COLOR_OUTFITS` | `0` = ai cũng mặc áo xám, không có áo hồng (top 6), áo nâu và áo trắng (đám đông) | 1 |
 | `MUSIC_VOLUME` | âm lượng nhạc nền (0 đến 1) | 0.25 |
 | `NAME_FONT_SIZE` | cỡ chữ của tên trên đầu nhân vật, đơn vị px (10 đến 48) | 16 |
 | `NAME_SHOW_SECONDS` | tên trên đầu nhân vật hiện bao nhiêu giây khi có người vào, chat hoặc vừa lạy xong; `0` = giữ thời gian có sẵn (2 đến 5 giây tuỳ lúc). Tên của người đang lạy và của top 6 trên đệm luôn hiện | 0 |
@@ -181,7 +181,7 @@ Thêm vào sau `/overlay`, nối nhiều tham số bằng `&`. Ví dụ: `http:/
 | `mute=1` | tắt hẳn tiếng, kể cả trong OBS. Trang xem trước ở admin dùng tham số này |
 | `lite=1` | chế độ nhẹ cho lúc live: tắt khử răng cưa, 30 khung hình/giây, ảnh nền nhỏ hơn, tối đa khoảng 60 phật tử (đám đông nền tối đa 30; top 6 luôn giữ) |
 | `names=1` | hiện tên của mọi nhân vật liên tục (đám đông giả lập có tên bịa), để xem cảnh đông người. Phòng đông thì các nền tên đè lên nhau, chỉ dùng để thử |
-| `outfits=devotee,brown,pink` | chọn bộ áo được nạp, cách nhau bằng dấu phẩy. Có `pink` thì top 6 mặc hồng; thiếu `pink` thì top 6 giữ áo của đám đông. Tham số này được ưu tiên hơn `COLOR_OUTFITS` trong `.env` |
+| `outfits=devotee,devotee-white,brown,pink` | chọn bộ áo được nạp, cách nhau bằng dấu phẩy. Có `pink` thì top 6 mặc hồng; thiếu `pink` thì top 6 giữ áo của đám đông. Tham số này được ưu tiên hơn `COLOR_OUTFITS` trong `.env` |
 | `debug=1` | hiện khung chẩn đoán (âm thanh có được phép không, nhạc, hàng đợi giọng đọc, ...) |
 | `queuewait=<ms>` | thời gian tối đa một quà chờ tới lượt lên lạy (mặc định 25000). Dùng khi kiểm thử |
 

@@ -205,14 +205,15 @@
   // Sprites live in public/assets/disciples/ as <pose>-<outfit>.png (poses: kneel, stand, walk, bow).
   // A disciple only ever uses sprites of its own outfit. An outfit needs kneel-<outfit>.png; any missing
   // pose falls back to the kneel sprite with a code-driven motion (bow = tilt and squash, walk = hop).
-  // Which outfits are loaded: 'devotee' and 'brown' are what the crowd wears (one picked at random per disciple); 'pink' is
+  // Which outfits are loaded: 'devotee' (grey), 'devotee-white' and 'brown' are what the crowd wears (one picked at random per
+  // disciple); 'pink' is
   // worn only by the top six on the cushions, and a disciple changes into or out of it as the ranking moves them.
   // ?outfits=brown on the overlay address restricts the cast without touching any file.
   const VIP_OUTFIT = 'pink';
   let OUTFITS = [];
   async function chooseOutfits() {
     const asked = new URLSearchParams(location.search).get('outfits');
-    let list = asked || 'devotee,brown,pink';
+    let list = asked || 'devotee,devotee-white,brown,pink';
     if (!asked) { // the server's COLOR_OUTFITS=0 switches the coloured robes off
       try { if ((await (await fetch('/api/config')).json()).colorOutfits === false) list = 'devotee'; } catch (_) { /* keep the default */ }
     }
@@ -226,7 +227,7 @@
   const baseOf = (pose) => pose.replace(/up2?$/, '');
   // A cast whose frames all share one scale (its pose images are cut from one drawing size) is drawn at this many
   // design pixels per image pixel, instead of the per-pose heights above.
-  const PIXEL_SCALE = { devotee: 1.2, brown: 0.55, pink: 0.55 }; // brown and pink are cut ~2x larger than devotee (scripts/cut-white-bg.py, cut-green-bg.py)
+  const PIXEL_SCALE = { devotee: 1.2, 'devotee-white': 0.55, brown: 0.55, pink: 0.55 }; // white, brown and pink are cut ~2x larger than devotee (scripts/cut-white-bg.py, cut-green-bg.py)
   const TEX = {}; // TEX[outfit][pose]
   const FIGURE_NEAR = 1.0, FIGURE_FAR = 0.62; // size at the bottom / top of the carpet
 
@@ -526,11 +527,11 @@
     const drawn = f.labelBg.geometry.graphicsData; // what the plate is really filled with
     return { user: f.name, visible: f.label.visible, size: f.label.style.fontSize, plateAlpha: drawn.length ? drawn[0].fillStyle.alpha : null };
   });
-  window.__crowd =() => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
   window.__bubbles = () => figures.filter((f) => f.bubble && !f.bubble.destroyed).map((f) => { // debug handle for tests
     const p = f.labelBg.getBounds(), b = f.bubbleBox;
     return { user: f.name, plateVisible: f.labelBg.visible, plate: { x: p.x, y: p.y, w: p.width, h: p.height }, bubble: { x: f.bubble.x - b.w / 2, y: f.bubble.y - b.h / 2, w: b.w, h: b.h } };
   });
+  window.__crowd =() => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
 
   setInterval(() => {
     for (const f of figures.slice()) {
@@ -638,8 +639,8 @@
     bubble.zIndex = 99999;
     layers.top.addChild(bubble);
     fig.bubble = bubble;
-    const follow = () => {
     fig.bubbleBox = { w, h };
+    const follow = () => {
       if (bubble.destroyed) return app.ticker.remove(follow);
       place();
     };

@@ -32,7 +32,7 @@ const MAX_WIDER = 1.15; // a bow may spread its arms a little: up to 15% wider t
   await send('Runtime.enable');
   await sleep(4000);
   const sizes = JSON.parse((await send('Runtime.evaluate', {
-    expression: `JSON.stringify(Object.fromEntries(['devotee','brown','pink'].map((o) => [o, Object.fromEntries(['kneelup', ${BOWS.map((b) => `'${b}'`).join(',')}].map((p) => [p, window.__poseSize ? window.__poseSize(o, p) : null]))])))`,
+    expression: `JSON.stringify(Object.fromEntries(['devotee','devotee-white','brown','pink'].map((o) => [o, Object.fromEntries(['kneelup', ${BOWS.map((b) => `'${b}'`).join(',')}].map((p) => [p, window.__poseSize ? window.__poseSize(o, p) : null]))])))`,
     returnByValue: true,
   })).result.result.value);
 
