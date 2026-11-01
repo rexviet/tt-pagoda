@@ -1,0 +1,26 @@
+README.md
+  h_43770622f8f2a6 60,143-144,150,204-206,224-226,229-230,248-249
+plans/journals/2026-11-01-add-a-top-six-simulation-preset.md
+  h_43770622f8f2a6 1-21
+plans/journals/2026-11-01-animate-walking-for-both-prayer-directions.md
+  h_43770622f8f2a6 1-21
+plans/journals/2026-11-01-apply-cumulative-milestones-only-to-one-coin-gifts.md
+  h_43770622f8f2a6 1-21
+plans/journals/2026-11-01-configure-chat-walking-speed-through-environment.md
+  h_43770622f8f2a6 1-21
+plans/journals/2026-11-01-prioritize-altar-animation-for-top-six.md
+  h_43770622f8f2a6 1-21
+plans/journals/2026-11-01-temple-aisle-movement-and-arrival-greetings.md
+  h_43770622f8f2a6 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "359061ebe85de260d74ee20cfce80f1fb52ea238",
+  "prompts": {},
+  "humans": {
+    "h_43770622f8f2a6": {
+      "author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
