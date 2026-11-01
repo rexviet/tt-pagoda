@@ -57,6 +57,7 @@ cp .env.example .env
 | `NAME_FONT_SIZE` | cỡ chữ của tên trên đầu nhân vật, đơn vị px (10 đến 48) | 16 |
 | `NAME_SHOW_SECONDS` | tên trên đầu nhân vật hiện bao nhiêu giây khi có người vào, chat hoặc vừa lạy xong; `0` = giữ thời gian có sẵn (2 đến 5 giây tuỳ lúc). Tên của người đang lạy và của top 6 trên đệm luôn hiện | 0 |
 | `NAME_PLATE_OPACITY` | độ đậm của hộp đen phía sau tên nhân vật, từ `0` (không có hộp) đến `1` (đen đặc) | 0.78 |
+| `CHAT_WALK_SPEED` | tốc độ di chuyển khi chat, tính bằng pixel/giây trên khung 1080×1920; số dương, ví dụ `200` để đi chậm hơn, `600` để đi nhanh hơn. Thời gian vẫn là 5 giây | 420 |
 | `SPEECH_REFILL_MS` | cứ bao lâu được thêm một câu đọc khi phòng đông | 4000 |
 | `STREAK_IDLE_MS` | quà bấm liên tục được chốt sau khi im lặng bao lâu | 3000 |
 
@@ -139,12 +140,14 @@ Terminal in địa chỉ trang admin và overlay. Mở:
 
 Để thử không cần phòng live thật, ở trang admin bấm các nút giả lập: quà theo từng mốc, người vào phòng, chia sẻ, đám đông. Khung "Xem trước Overlay" luôn im lặng; muốn nghe giọng thì mở `/overlay?sound=1` ở một tab riêng và chạm vào trang một lần (trình duyệt chỉ cho phát tiếng sau khi bạn bấm vào trang).
 
+Nút **Giả Lập Top 6 — Mỗi Người 100 Điểm** làm mới phiên và tạo sáu người `Top 1` đến `Top 6`, mỗi người đúng 100 điểm, ngồi trên sáu đệm. Ô tên tự chuyển sang `Top 1`; bấm quà để thử hành lễ của người này hoặc đổi tên sang `Top 2` đến `Top 6`. Bấm lại nút Top 6 sẽ đưa cả sáu về 100 điểm.
+
 Mốc quà tính theo tổng xu của một lượt tặng, sửa ở `gift-tiers.js`:
 
 | Xu | Hiệu ứng |
 |---|---|
 | 1 | dâng hương |
-| 5 | xin xăm: rút một quẻ, không lên lạy |
+| 5 | xin xăm: rút một quẻ; vị trí hành lễ theo đơn giá, tổng xu và top 6 |
 | 10 | lạy sát đất |
 | 20 | lạy, hào quang tượng Phật sáng lên |
 | 50 | thả đèn hoa đăng |
@@ -198,7 +201,9 @@ Mỗi lần restart server phải bấm **Kết nối Live** lại. Mỗi quà n
 
 Trước khi lên sóng thật, bấm **Làm Mới Phiên Live** để xóa bảng xếp hạng thử.
 
-**Gieo quẻ:** quà 5 xu là quà xin xăm: người tặng rút một quẻ, không lên lạy. Chat chữ `xin xăm` không rút quẻ. Overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây, giọng đọc nói tên người gieo cùng hạng và vế đầu tên quẻ; tối đa 5 tờ chờ lượt. Đổi mốc xu ở `gift-tiers.js`. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút giả lập quà 5 xu và nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
+**Gieo quẻ:** quà thuộc mốc xin xăm (từ 5 đến dưới 10 xu mỗi lượt) rút thêm một quẻ; vị trí hành lễ theo quy tắc đơn giá quà, tổng xu tích lũy và top 6. Chat chữ `xin xăm` không rút quẻ. Overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây, giọng đọc nói tên người gieo cùng hạng và vế đầu tên quẻ; tối đa 5 tờ chờ lượt. Đổi mốc xu ở `gift-tiers.js`. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút giả lập quà 5 xu và nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
+
+**Chào người vào:** nếu đã ít nhất 2 giây từ sự kiện tặng xu gần nhất, người vào được chào ngẫu nhiên bằng một trong hai câu: "Thí chủ <tên> đến rồi, hoan hỷ quá!" hoặc "Mừng thí chủ <tên> về chùa!". Giọng chào dùng chung thiết lập bật/tắt giọng và hàng đợi âm thanh. Thời điểm quà được ghi ngay khi nhận, kể cả chuỗi quà đang chờ chốt. Làm mới phiên xóa mốc thời gian này.
 
 **Người rời phòng:** khi ai đó thoát, nhân vật của họ biến mất. Nếu TikTok không báo ai vừa thoát (thường là vậy), overlay dựa vào số người xem của phòng: khi số nhân vật nhiều hơn số người xem, những người im lặng lâu nhất bị coi là đã rời. Top 6 trên đệm và người đang chờ lạy được giữ lại; ai quay lại hoặc tặng quà sẽ có nhân vật mới. Cách này là ước lượng, chưa được thử trên phòng live thật.
 
@@ -216,10 +221,13 @@ Chỉ tải lại trang overlay là đủ, không cần restart server. File nh�
 ### Cảnh điện
 - **Ảnh nền:** `public/assets/background.png`, nên 2160×3840 (tỉ lệ 9:16, mỗi cạnh không quá 4096). Các vị trí trong `public/overlay.js` (`ALTAR_SPOT`, `ALTAR_VIEW`, `CUSHION_Y`, vị trí 6 đệm, `CARPET_TOP_Y`, `FLOOR_TOP`) được **đo trên ảnh nền hiện tại**; đổi ảnh thì phải đo và chỉnh lại các số này.
 - **Top 6 bảng xếp hạng** ngồi sẵn trên 6 đệm: hạng 1 và 2 ở hai đệm trong cùng, rồi 3 và 4, rồi 5 và 6. Ai vượt lên thì mọi người dịch chỗ. Bảng "TÂM LÒNG THÀNH" hiện hạng 7 đến 10, ẩn khi chưa có ai. Đầu bảng ghi số xu của hạng 6 (mức người ngoài đệm cần vượt). Mỗi dòng cho biết còn bao nhiêu xu để lên đệm (còn 1 hoặc 2 xu thì chữ cam). Điểm bằng nhau thì ai đạt mức điểm đó trước xếp trên, nên người chỉ đuổi kịp vẫn xếp sau và phải hơn hạng 6 một xu.
-- **Đám đông:** Phật tử đứng khắp nền điện, mỗi người một chỗ cố định. Thanh "Đám đông nền" ở admin (hoặc `AMBIENT_CROWD`) quyết định số người vô danh đứng sẵn cho điện luôn đông.
-- **Tặng quà:** người tặng chạy lên lạy ở giữa 6 đệm, máy quay lấy khung bàn thờ và tượng Phật, đám đông mờ đi. Mỗi lần chỉ một người; quà đến dồn thì xếp hàng: người đang chờ tặng thêm thì cộng dồn, quà lớn đi trước, tối đa 5 người chờ (người thừa chỉ cúi lạy tại chỗ), chờ quá 25 giây cũng chỉ cúi lạy tại chỗ.
+- **Đám đông:** Phật tử có chỗ cố định ở hai bên; lối giữa từ x=420 đến x=690 trên khung 1080px được để trống. Thanh "Đám đông nền" ở admin (hoặc `AMBIENT_CROWD`) quyết định số người vô danh đứng sẵn.
+- **Tặng quà:** người thuộc top 6 luôn ra giữa các đệm, lên vị trí hành lễ và camera zoom, bất kể tổng xu; hành lễ xong quay về đệm của mình. Người ngoài top 6 tặng quà có đơn giá lớn hơn 1 xu luôn lên bàn thờ và zoom. Riêng quà có đơn giá 1 xu mới xét tổng xu tích lũy sau lượt quà: chia hết cho 5 (5, 10, 15, ...) thì lên bàn thờ và zoom, còn lại hành lễ trong lối giữa rồi về chỗ. Quy tắc xét theo đơn giá, nên combo nhiều quà 1 xu vẫn phải kiểm tra tổng tích lũy. Top 6 được xác định sau khi cộng điểm và kiểm tra lại khi đến lượt hành lễ. Quà vẫn xếp hàng, gộp cùng người và ưu tiên mốc quà cao; một lượt đang chờ đã đạt mốc lên bàn thờ thì giữ hiệu ứng đó khi nhận thêm quà. Khi hàng đợi vượt 5 người hoặc chờ quá 25 giây, lượt thường chuyển sang hành lễ trong lối giữa; lượt đã đạt mốc lên bàn thờ được giữ lại đến khi tới lượt. Điểm tích lũy đặt lại khi làm mới phiên hoặc restart server.
+- **Chat:** nhân vật đi ngẫu nhiên trong 5 giây tính từ tin chat mới nhất, rồi về chỗ hai bên hoặc đệm VIP của mình. Tốc độ chỉnh bằng `CHAT_WALK_SPEED` trong `.env` (mặc định `420` pixel/giây); đặt `200` để chậm hơn hoặc `600` để nhanh hơn, rồi restart server và tải lại overlay. Giá trị không hợp lệ hoặc không dương dùng mặc định. Hành lễ được ưu tiên; chat gửi trong lúc hành lễ được thực hiện sau khi nhân vật trở về.
 
 ### Nhân vật
+
+Nhân vật dùng luân phiên hai khung `walkup` và `walkup2` cho cả lượt đi ra hành lễ và lượt trở về. Việc đổi chỗ giữa đám đông và đệm VIP cũng dùng bước đi liên tục. Các bộ ảnh hiện có đều nhìn từ phía sau; cùng hai khung này được dùng cho mọi hướng di chuyển. Nhân vật hành lễ vẫn hiện khi camera thu lại và đi về chỗ.
 Có hai bộ trong `public/assets/disciples/`, đặt tên `<tư thế>-<bộ>.png`:
 - `devotee` (mặc định): người thật nhìn từ sau lưng, lấy từ dự án `tiktok-live-temple-rpc`. Có thêm khung bước chân thứ hai, khung quỳ xuống và ba bước cúi lạy.
 - `brown`: nhân vật chibi.
@@ -237,6 +245,8 @@ Các script chạy với server đang mở. Cho server `SPEECH_REFILL_MS=300` đ
 SPEECH_REFILL_MS=300 PORT=3190 npm start          # terminal 1
 PORT=3190 node scripts/sim-smoke.js               # quà, chat, bảng xếp hạng, giọng, nhạc, vào phòng
 node scripts/tiktok-events-test.js                # sự kiện TikTok giả: chia sẻ, vào phòng, quà liên tục (tự chạy, không cần server)
+node scripts/movement-events-test.js              # tổng xu, mốc lên bàn thờ, chào sau 2 giây (tự chạy, stub TTS)
+node scripts/overlay-movement-test.js              # lối giữa, chat 5 giây, hành lễ và zoom (tự chạy, cần Chrome)
 node scripts/overlay-queue-test.js 3190           # hàng đợi quà (cần Chrome)
 node scripts/overlay-vip-test.js 3190             # top 6 trên đệm (cần Chrome)
 node scripts/overlay-board-test.js 3190           # bảng hạng 7 đến 10 (cần Chrome)
