@@ -61,9 +61,27 @@ const BLESSINGS = [
   'cả năm đắc lộc',
 ];
 
+// A name with a rude word is not read out: the word is swapped for a polite stand-in. The word has to end there (so
+// "lồng" is fine) and the first one found in the name decides. Matching ignores case and works on composed accents.
+const RUDE_NAMES = [
+  { word: /(?<!\p{L})lồn(?!\p{L})/iu, said: 'Chị L' },
+  { word: /(?<!\p{L})cặc(?!\p{L})/iu, said: 'Anh C' },
+];
+function rudeStandIn(name) {
+  let found = null;
+  for (const { word, said } of RUDE_NAMES) {
+    const at = name.search(word);
+    if (at !== -1 && (!found || at < found.at)) found = { at, said };
+  }
+  return found && found.said;
+}
+
 // TikTok nicknames carry emoji and symbols that a voice would read out loud or choke on.
 function speakableName(name) {
-  const clean = String(name || '')
+  const composed = String(name || '').normalize('NFC');
+  const standIn = rudeStandIn(composed);
+  if (standIn) return standIn;
+  const clean = composed
     .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()

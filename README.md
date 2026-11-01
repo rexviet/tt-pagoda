@@ -64,6 +64,8 @@ Lưu ý: file mẫu đặt `TTS_PROVIDER=zerotts`, cần làm mục 4 cách B tr
 
 ## 4. Chọn giọng đọc
 
+Tên có từ thô tục không được đọc nguyên văn: tên chứa chữ "lồn" được đọc là "Chị L", chứa chữ "cặc" được đọc là "Anh C" (chỉ áp dụng cho giọng đọc, tên trên màn hình giữ nguyên). Danh sách nằm ở `RUDE_NAMES` trong `speech.js`.
+
 Mỗi quà được đọc thành một câu: "<tên> đã dâng hương, chúc bạn <lời chúc ngẫu nhiên>". Chia sẻ chỉ hiện chữ, không đọc. Chọn một trong các cách sau.
 
 ### Cách A: giọng macOS, không cần cài gì thêm

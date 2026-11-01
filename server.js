@@ -9,7 +9,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { tierForCoins, GIFT_TIERS } = require('./gift-tiers');
-const { buildParts, audioFor, checkVoiceServer } = require('./speech');
+const { buildParts, audioFor, checkVoiceServer, speakableName } = require('./speech');
 const { FORTUNE_DECK } = require('./fortunes');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -164,7 +164,7 @@ function handleGift({ userId, name, coins, giftName, count }) {
 
 function handleFortune({ userId, name }) {
   const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];
-  const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`${name} đã xin được quẻ xăm ${fortune.rank}, ${fortune.title.split(/\s+—\s+/)[0]}`]) : null;
+  const speech = voiceEnabled && takeSpeechToken('fortune') ? registerParts([`${speakableName(name)} đã xin được quẻ xăm ${fortune.rank}, ${fortune.title.split(/\s+—\s+/)[0]}`]) : null;
   io.emit('overlay', { type: 'fortune', user: name, userId, fortune, speech });
   return true;
 }
