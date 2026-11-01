@@ -174,6 +174,8 @@ Thêm nguồn **Link** với địa chỉ overlay **có đuôi `?sound=1&lite=1`
 ### Quy tắc âm thanh
 Chỉ trang trong OBS tự phát tiếng. Mọi nơi khác (tab Chrome, LIVE Studio, điện thoại) cần `?sound=1`. Thêm `&debug=1` để hiện khung chẩn đoán trên màn hình (âm thanh có được phép không, nhạc có đang phát không). Thêm `?mute=1` để tắt tiếng trang đó.
 
+Khi nhân vật đã đi đến vị trí hành lễ ở bàn thờ và bắt đầu quỳ, overlay mới phát một tiếng chuông chùa từ `public/assets/temple-bell.mp3` (file gốc `mot_tieng_chuong_chua-www_tiengdong_com.mp3`). Chuông ngân hết tự nhiên; lượt quỳ mới ở bàn thờ phát lại từ đầu, không chồng nhiều bản. Làm mới phiên dừng tiếng chuông. Lượt hành lễ không zoom không phát chuông.
+
 ### Tham số trên địa chỉ overlay
 
 Thêm vào sau `/overlay`, nối nhiều tham số bằng `&`. Ví dụ: `http://localhost:3000/overlay?sound=1&lite=1`.
@@ -201,7 +203,7 @@ Mỗi lần restart server phải bấm **Kết nối Live** lại. Mỗi quà n
 
 Trước khi lên sóng thật, bấm **Làm Mới Phiên Live** để xóa bảng xếp hạng thử.
 
-**Gieo quẻ:** quà thuộc mốc xin xăm (từ 5 đến dưới 10 xu mỗi lượt) rút thêm một quẻ; vị trí hành lễ theo quy tắc đơn giá quà, tổng xu tích lũy và top 6. Chat chữ `xin xăm` không rút quẻ. Overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây, giọng đọc nói tên người gieo cùng hạng và vế đầu tên quẻ; tối đa 5 tờ chờ lượt. Đổi mốc xu ở `gift-tiers.js`. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút giả lập quà 5 xu và nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
+**Gieo quẻ:** quà thuộc mốc xin xăm (từ 5 đến dưới 10 xu mỗi lượt) rút thêm một quẻ; vị trí hành lễ theo quy tắc đơn giá quà, tổng xu tích lũy và top 6. Chat chữ `xin xăm` không rút quẻ. Hũ xăm treo trên cột bên phải, phía dưới bảng xếp hạng, có kích thước gấp 1,5 lần ban đầu và lắc trong 1,8 giây kèm tiếng lắc từ file `dragon-studio-dry-grass-rustling-478361.mp3` (lưu tại `public/assets/fortune-rattle.mp3`, lặp trong thời gian hũ lắc) trước khi overlay hiện tờ giải quẻ (hạng quẻ, bài thơ, lời bàn) trong 5 giây; nếu trình duyệt bật giảm chuyển động thì hũ đứng yên trong thời gian chờ. Ảnh dùng trong cảnh là `public/assets/xam-transparent.png`, được tách nền từ `public/assets/xam.png`. Các lượt xin xăm và hành lễ được đồng bộ: chờ lượt hành lễ trước kết thúc và camera về toàn cảnh → lắc hũ → hiện quẻ đủ 5 giây → đóng quẻ → nhân vật mới chạy lên hành lễ và camera mới zoom. Quà nhận trong lúc lắc hoặc xem quẻ chờ trong hàng đợi. Tiếng lắc dừng trước khi mở quẻ và khi làm mới phiên; tuân theo `sound=1` / `mute=1` như âm thanh overlay, trên trình duyệt cần bấm bật tiếng nếu bị chặn tự phát. Sau khi hũ lắc xong, giọng đọc nói tên người gieo cùng hạng và vế đầu tên quẻ; tối đa 5 tờ chờ lượt. Đổi mốc xu ở `gift-tiers.js`. Bộ quẻ nằm trong `fortunes.js`, thêm quẻ mới ở đó. Trên trang admin có nút giả lập quà 5 xu và nút **Giả Lập Xin Xăm / Gieo Quẻ** để thử.
 
 **Chào người vào:** nếu đã ít nhất 2 giây từ sự kiện tặng xu gần nhất, người vào được chào ngẫu nhiên bằng một trong hai câu: "Thí chủ <tên> đến rồi, hoan hỷ quá!" hoặc "Mừng thí chủ <tên> về chùa!". Giọng chào dùng chung thiết lập bật/tắt giọng và hàng đợi âm thanh. Thời điểm quà được ghi ngay khi nhận, kể cả chuỗi quà đang chờ chốt. Làm mới phiên xóa mốc thời gian này.
 
@@ -247,6 +249,8 @@ PORT=3190 node scripts/sim-smoke.js               # quà, chat, bảng xếp h�
 node scripts/tiktok-events-test.js                # sự kiện TikTok giả: chia sẻ, vào phòng, quà liên tục (tự chạy, không cần server)
 node scripts/movement-events-test.js              # tổng xu, mốc lên bàn thờ, chào sau 2 giây (tự chạy, stub TTS)
 node scripts/overlay-movement-test.js              # lối giữa, chat 5 giây, hành lễ và zoom (tự chạy, cần Chrome)
+SOUND=1 node scripts/overlay-fortune-test.js       # thêm kiểm tra phát tiếng lắc (tự chạy, cần Chrome)
+node scripts/overlay-fortune-test.js               # hũ xăm lắc trước khi hiện quẻ, hàng đợi và làm mới phiên (tự chạy, cần Chrome)
 node scripts/overlay-queue-test.js 3190           # hàng đợi quà (cần Chrome)
 node scripts/overlay-vip-test.js 3190             # top 6 trên đệm (cần Chrome)
 node scripts/overlay-board-test.js 3190           # bảng hạng 7 đến 10 (cần Chrome)

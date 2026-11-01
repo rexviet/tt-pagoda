@@ -463,11 +463,61 @@
   }
 
   // ---- fortune sticks (xin xăm / gieo quẻ) ----------------------------------------------------------
-  // A viewer who asks for a quẻ in the chat gets a card with the grade, the poem and its meaning, while the voice reads it.
-  // Cards take turns (at most three wait); the card is an HTML layer inside the stage so it scales with the frame.
-  const FORTUNE_CARD_MS = 5000, FORTUNE_MAX_WAITING = 5;
+  // Fortune gifts shake the jar before revealing their card. Each draw, including its animation, takes its turn.
+  // The jar belongs to the hall so it follows the camera; the HTML card scales with the overlay frame.
+  const FORTUNE_CARD_MS = 5000, FORTUNE_MAX_WAITING = 5, FORTUNE_SHAKE_MS = 1800;
+  const FORTUNE_JAR = { x: 978, y: 895, height: 230 * 1.5, tilt: 0.14, sway: 9, lift: 6, cycleMs: 220 };
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const fortuneQueue = [];
-  let fortuneBusy = false;
+  let fortuneBusy = false, fortuneGeneration = 0, fortuneShaking = false, fortuneShakeStarted = 0;
+  let fortuneJar = null;
+  const fortuneRattle = new Audio('/assets/fortune-rattle.mp3');
+  fortuneRattle.preload = 'auto';
+  fortuneRattle.loop = true;
+  fortuneRattle.volume = 0.55;
+
+  function stopFortuneRattle() {
+    fortuneRattle.pause();
+    fortuneRattle.currentTime = 0;
+  }
+
+  function playFortuneRattle() {
+    if (MUTED || !fortuneShaking) return;
+    // An autoplay unlock during a shake joins the current beat instead of replaying the beginning.
+    fortuneRattle.currentTime = Math.min((performance.now() - fortuneShakeStarted) / 1000, FORTUNE_SHAKE_MS / 1000);
+    fortuneRattle.play().then(() => {
+      if (!fortuneShaking) stopFortuneRattle();
+    }).catch((error) => {
+      if (error.name === 'NotAllowedError') showUnlockHint();
+      else if (error.name !== 'AbortError') console.warn('[fortune] Không phát được tiếng lắc xăm:', error.message);
+    });
+  }
+  const fortuneJarReady = PIXI.Assets.load('/assets/xam-transparent.png').then((texture) => {
+    fortuneJar = new PIXI.Sprite(texture);
+    fortuneJar.anchor.set(0.5, 1);
+    fortuneJar.scale.set(FORTUNE_JAR.height / texture.height);
+    fortuneJar.position.set(FORTUNE_JAR.x, FORTUNE_JAR.y);
+    layers.floor.addChild(fortuneJar);
+  }).catch((error) => console.warn('Không tải được hình hũ xăm:', error));
+
+  function settleFortuneJar() {
+    fortuneShaking = false;
+    stopFortuneRattle();
+    if (!fortuneJar) return;
+    fortuneJar.rotation = 0;
+    fortuneJar.position.set(FORTUNE_JAR.x, FORTUNE_JAR.y);
+  }
+
+  app.ticker.add(() => {
+    if (!fortuneJar || !fortuneShaking || reducedMotion.matches) return;
+    const elapsed = performance.now() - fortuneShakeStarted;
+    const progress = Math.min(1, elapsed / FORTUNE_SHAKE_MS);
+    const strength = Math.sin(progress * Math.PI);
+    const wave = Math.sin(elapsed / FORTUNE_JAR.cycleMs * Math.PI * 2);
+    fortuneJar.rotation = wave * strength * FORTUNE_JAR.tilt;
+    fortuneJar.x = FORTUNE_JAR.x + wave * strength * FORTUNE_JAR.sway;
+    fortuneJar.y = FORTUNE_JAR.y - Math.abs(wave) * strength * FORTUNE_JAR.lift;
+  });
   const fortuneCard = document.createElement('div');
   fortuneCard.style.cssText = 'position:absolute;left:90px;width:900px;top:690px;box-sizing:border-box;padding:34px 44px;text-align:center;' +
     'background:linear-gradient(180deg,#fff5dc,#f5deb3);color:#3b0d09;border:6px solid #8c1812;outline:3px solid #d9a93a;border-radius:24px;' +
@@ -488,29 +538,72 @@
   async function pumpFortune() {
     if (fortuneBusy) return;
     fortuneBusy = true;
-    while (fortuneQueue.length) {
+    const generation = fortuneGeneration;
+    await fortuneJarReady;
+    if (generation !== fortuneGeneration) return;
+    while (fortuneQueue.length && generation === fortuneGeneration) {
       const ev = fortuneQueue.shift();
-      // The voice first announces who drew which grade, so everyone in the room knows, then reads the card.
+      // Let the preceding ceremony finish and the camera return to the whole hall.
+      while (onStage || spotlights.length || camera.zoom > 1.01) {
+        await wait(50);
+        if (generation !== fortuneGeneration) return;
+      }
+      fortuneShaking = true;
+      fortuneShakeStarted = performance.now();
+      playFortuneRattle();
+      await wait(FORTUNE_SHAKE_MS);
+      if (generation !== fortuneGeneration) return;
+      settleFortuneJar();
+      // Announce the result only once the jar has finished shaking.
       if (ev.speech) enqueueSpeech(ev.speech);
       showBanner(`${ev.user} đã xin được quẻ xăm ${ev.fortune.rank} 🎋`, 2800);
-      await wait(1800);
       renderFortune(ev);
       fortuneCard.style.opacity = '1';
       fortuneCard.style.transform = 'scale(1)';
       await wait(FORTUNE_CARD_MS);
+      if (generation !== fortuneGeneration) return;
       fortuneCard.style.opacity = '0';
       fortuneCard.style.transform = 'scale(0.92)';
       await wait(400);
+      if (generation !== fortuneGeneration) return;
+      // The matching gift stays queued until its complete fortune reveal has finished.
+      const index = offerQueue.findIndex((entry) => entry.userId === ev.userId && entry.fortunePending);
+      if (index >= 0) {
+        const entry = offerQueue.splice(index, 1)[0];
+        updateQueueBadge();
+        await playOffer(entry);
+        if (generation !== fortuneGeneration) return;
+      }
     }
     fortuneBusy = false;
+    pumpOffers();
+  }
+
+  function resetFortunes() {
+    fortuneGeneration++;
+    fortuneQueue.length = 0;
+    fortuneBusy = false;
+    settleFortuneJar();
+    fortuneCard.style.opacity = '0';
+    fortuneCard.style.transform = 'scale(0.92)';
   }
 
   function offerFortune(ev) {
-    if (!ev.fortune || fortuneQueue.length >= FORTUNE_MAX_WAITING) return;
+    if (!ev.fortune) return;
+    if (fortuneQueue.length >= FORTUNE_MAX_WAITING) {
+      // A full card queue must not strand the associated gift's prayer.
+      const entry = offerQueue.find((entry) => entry.userId === ev.userId);
+      if (entry) entry.fortunePending = false;
+      pumpOffers();
+      return;
+    }
     fortuneQueue.push(ev);
     pumpFortune().catch(() => { fortuneBusy = false; });
   }
-  window.__fortune = () => ({ waiting: fortuneQueue.length, busy: fortuneBusy, shown: fortuneCard.style.opacity === '1', title: fortuneCard.textContent.slice(0, 60) }); // debug handle for tests
+  window.__fortune = () => ({ waiting: fortuneQueue.length, busy: fortuneBusy, shaking: fortuneShaking,
+    jar: fortuneJar && { x: fortuneJar.x, y: fortuneJar.y, rotation: fortuneJar.rotation, height: fortuneJar.height },
+    rattle: { paused: fortuneRattle.paused, time: fortuneRattle.currentTime, ready: fortuneRattle.readyState },
+    shown: fortuneCard.style.opacity === '1', title: fortuneCard.textContent.slice(0, 60) }); // debug handle for tests
 
   // ---- people leaving ---------------------------------------------------------------------------
   // A viewer who leaves the room loses their disciple. The top six on the cushions stay (they are on the ranking), and so
@@ -919,38 +1012,53 @@
       if (TIER_PRIORITY[ev.tier] > TIER_PRIORITY[waiting.tier]) waiting.tier = ev.tier;
       waiting.speech = waiting.speech || ev.speech || null;
       waiting.altar = waiting.altar || ev.altar;
+      waiting.fortunePending = waiting.fortunePending || ev.tier === 'que';
     } else {
-      offerQueue.push({ user: ev.user, userId: ev.userId, tier: ev.tier, count: ev.count, altar: ev.altar, speech: ev.speech || null, queuedAt: Date.now() });
+      offerQueue.push({ user: ev.user, userId: ev.userId, tier: ev.tier, count: ev.count, altar: ev.altar, speech: ev.speech || null,
+        fortunePending: ev.tier === 'que', queuedAt: Date.now() });
     }
     offerQueue.sort((x, y) => TIER_PRIORITY[y.tier] - TIER_PRIORITY[x.tier] || x.queuedAt - y.queuedAt); // rule 2
-    while (offerQueue.length > OFFER_QUEUE_MAX) {
-      const extra = offerQueue.findLastIndex((entry) => !entry.altar);
-      if (extra < 0) break; // never discard an earned altar visit
-      bowInPlace(offerQueue.splice(extra, 1)[0]);
-    }
+    trimOfferQueue();
     updateQueueBadge();
     pumpOffers();
   }
 
+  function trimOfferQueue() {
+    // Overflow prayers must wait too, or a promoted viewer could start a zoom during the draw.
+    while (!fortuneBusy && offerQueue.length > OFFER_QUEUE_MAX) {
+      const extra = offerQueue.findLastIndex((entry) => !entry.altar && !entry.fortunePending);
+      if (extra < 0) break; // never discard an earned altar visit
+      bowInPlace(offerQueue.splice(extra, 1)[0]);
+    }
+  }
+
   async function pumpOffers() {
-    if (onStage) return;
-    while (offerQueue.length) {
+    if (onStage || fortuneBusy) return;
+    trimOfferQueue();
+    while (offerQueue.length && !fortuneBusy) {
+      if (offerQueue[0].fortunePending) return;
       const entry = offerQueue.shift();
       // Use the current cushion assignment too: ranks may change while a prayer waits.
       if (figures.some((f) => f.userId === entry.userId && f.vipRank)) entry.altar = true;
       updateQueueBadge();
       if (!entry.altar && Date.now() - entry.queuedAt > OFFER_MAX_WAIT_MS) { bowInPlace(entry); continue; }
-      onStage = entry;
-      showBanner(offerText(entry), 4500);
-      enqueueSpeech(entry.speech);
-      try { await offer(entry.user, entry.userId, entry.tier, entry.altar); } catch (_) { /* the page was reset during the prayer */ }
-      onStage = null;
+      await playOffer(entry);
     }
+  }
+
+  async function playOffer(entry) {
+    if (figures.some((f) => f.userId === entry.userId && f.vipRank)) entry.altar = true;
+    onStage = entry;
+    showBanner(offerText(entry), 4500);
+    enqueueSpeech(entry.speech);
+    try { await offer(entry.user, entry.userId, entry.tier, entry.altar); } catch (_) { /* the page was reset during the prayer */ }
+    if (onStage === entry) onStage = null;
   }
 
   window.__queue = () => ({ onStage: onStage ? onStage.user : null, waiting: offerQueue.map((e) => ({ user: e.user, tier: e.tier, count: e.count })), hero: layers.hero.children.length }); // debug handle for tests
   window.__movement = () => ({
     aisle: { left: AISLE_LEFT, right: AISLE_RIGHT }, zoom: camera.zoom, chatWalkSpeed,
+    bell: { paused: templeBell.paused, time: templeBell.currentTime, ready: templeBell.readyState },
     onStage: onStage && { user: onStage.user, altar: onStage.altar },
     figures: figures.map((f) => ({ user: f.name, userId: f.userId, x: f.c.x, y: f.c.y,
       home: f.slot && { x: f.slot.x, y: f.slot.y }, busy: f.busy, roaming: !!f.roaming, vip: f.vipRank,
@@ -983,26 +1091,24 @@
         await walkTo(fig, (AISLE_LEFT + AISLE_RIGHT) / 2, y, RUN_SPEED);
       }
       const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
+      const kneeling = kneel(fig, altar && (tier === 'buc' || tier === 'tambao'));
+      if (altar) playTempleBell();
+      await kneeling;
       if (!altar) {
-        await kneel(fig);
         smoke(fig.c.x, headY());
         await bow(fig, 1);
       } else if (tier === 'huong' || tier === 'que' || tier === 'phaphoi') {
-        await kneel(fig);
         for (let i = 0; i < 3; i++) { smoke(fig.c.x, headY()); await wait(250); }
         await bow(fig, 2);
         if (tier === 'phaphoi') festival(user).catch(() => {});
       } else if (tier === 'buc') {
-        await kneel(fig, true);
         sparks(fig.c.x, headY(), 16);
         await wait(3000);
       } else if (tier === 'tambao') {
-        await kneel(fig, true);
         sparks(fig.c.x, headY(), 40);
         flashBuddha();
         await wait(3500);
       } else if (tier === 'hoadang') {
-        await kneel(fig);
         releaseLanterns(16);
         sparks(fig.c.x, headY(), 50);
         await wait(4000);
@@ -1073,6 +1179,7 @@
   }
 
   function resetScene() {
+    stopTempleBell();
     bannerQueue.length = 0;
     offerQueue.length = 0;
     updateQueueBadge();
@@ -1093,6 +1200,27 @@
   // so only OBS speaks by default; any other browser needs ?sound=1, and ?mute=1 silences even OBS.
   const params = new URLSearchParams(location.search);
   const MUTED = params.has('mute') || !(window.obsstudio || params.has('sound'));
+  const templeBell = new Audio('/assets/temple-bell.mp3');
+  templeBell.preload = 'auto';
+  templeBell.volume = 0.55;
+  let templeBellBlocked = false;
+
+  function stopTempleBell() {
+    templeBellBlocked = false;
+    templeBell.pause();
+    templeBell.currentTime = 0;
+  }
+
+  function playTempleBell() {
+    if (MUTED || !spotlights.length) return;
+    templeBellBlocked = false;
+    // Strike once when kneeling starts; let its resonance finish naturally without stacking clips.
+    templeBell.currentTime = 0;
+    templeBell.play().catch((error) => {
+      if (error.name === 'NotAllowedError') { templeBellBlocked = true; showUnlockHint(); }
+      else if (error.name !== 'AbortError') console.warn('[bell] Không phát được tiếng chuông chùa:', error.message);
+    });
+  }
   const MAX_PENDING_SPEECH = 4;
   const speechQueue = [];
   let speaking = false;
@@ -1116,7 +1244,11 @@
       padding: '18px 28px', font: '700 28px Arial', color: '#3b0f0a', background: '#ffd77a',
       border: '3px solid #b8872a', borderRadius: '12px', cursor: 'pointer',
     });
-    unlockHint.onclick = () => { unlockHint.remove(); unlockHint = null; pumpSpeech(); startMusic(); };
+    unlockHint.onclick = () => {
+      unlockHint.remove(); unlockHint = null;
+      pumpSpeech(); startMusic(); playFortuneRattle();
+      if (templeBellBlocked) playTempleBell();
+    };
     document.body.appendChild(unlockHint);
   }
 
@@ -1327,7 +1459,7 @@
         break;
       case 'nammo': nammo(ev.count).catch(() => {}); break;
       case 'crowd': spawnCrowd(ev.count); break;
-      case 'reset': speechQueue.length = 0; fortuneQueue.length = 0; resetScene(); break;
+      case 'reset': speechQueue.length = 0; resetFortunes(); resetScene(); break;
       default: break;
     }
   }
