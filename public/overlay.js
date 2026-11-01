@@ -527,6 +527,10 @@
     return { user: f.name, visible: f.label.visible, size: f.label.style.fontSize, plateAlpha: drawn.length ? drawn[0].fillStyle.alpha : null };
   });
   window.__crowd =() => figures.filter(isReal).map((f) => ({ user: f.name, leaving: !!f.leaving, vip: f.vipRank || 0 })); // debug handle for tests
+  window.__bubbles = () => figures.filter((f) => f.bubble && !f.bubble.destroyed).map((f) => { // debug handle for tests
+    const p = f.labelBg.getBounds(), b = f.bubbleBox;
+    return { user: f.name, plateVisible: f.labelBg.visible, plate: { x: p.x, y: p.y, w: p.width, h: p.height }, bubble: { x: f.bubble.x - b.w / 2, y: f.bubble.y - b.h / 2, w: b.w, h: b.h } };
+  });
 
   setInterval(() => {
     for (const f of figures.slice()) {
@@ -616,19 +620,28 @@
     if (fig.bubble && !fig.bubble.destroyed) fig.bubble.destroy({ children: true });
     const t = new PIXI.Text(text, { fontFamily: 'Arial', fontSize: 20, fill: 0x111111, wordWrap: true, wordWrapWidth: 230 });
     t.anchor.set(0.5);
-    const w = t.width + 24, h = t.height + 16;
+    // The bubble takes the place of the black name plate: it is as wide as the plate (or wider) and its bottom edge is level
+    // with the plate's, so the plate is hidden behind it and the tail points at the head. The bubble is not scaled with the
+    // disciple, so the plate's size on screen is worked out here.
+    const plateW = (fig.label.width + LABEL_PAD_X * 2) * Math.abs(fig.c.scale.x) + 8;
+    const plateH = (fig.label.height + LABEL_PAD_Y * 2) * Math.abs(fig.c.scale.y) + 6;
+    const w = Math.max(t.width + 24, plateW), h = Math.max(t.height + 16, plateH);
     const bubble = new PIXI.Container();
     const bg = new PIXI.Graphics().lineStyle(2, 0x999999).beginFill(0xffffff, 0.96).drawRoundedRect(-w / 2, -h / 2, w, h, 12).endFill();
     bg.beginFill(0xffffff, 0.96).drawPolygon([-8, h / 2 - 1, 8, h / 2 - 1, 0, h / 2 + 12]).endFill();
     bubble.addChild(bg, t);
-    bubble.position.set(fig.c.x, fig.c.y - (fig.h + 26) * fig.c.scale.y - h / 2);
+    const place = () => {
+      bubble.x = fig.c.x;
+      bubble.y = fig.c.y + (fig.label.y + LABEL_PAD_Y) * fig.c.scale.y + 3 - h / 2; // 3 px below the plate's bottom edge
+    };
+    place();
     bubble.zIndex = 99999;
     layers.top.addChild(bubble);
     fig.bubble = bubble;
     const follow = () => {
+    fig.bubbleBox = { w, h };
       if (bubble.destroyed) return app.ticker.remove(follow);
-      bubble.x = fig.c.x;
-      bubble.y = fig.c.y - (fig.h + 26) * fig.c.scale.y - h / 2;
+      place();
     };
     app.ticker.add(follow);
     setTimeout(() => { if (!bubble.destroyed) tween(bubble, { alpha: 0 }, 400).then(() => bubble.destroy({ children: true })); }, 5000);
