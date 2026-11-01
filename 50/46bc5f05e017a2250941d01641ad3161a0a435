@@ -1,0 +1,30 @@
+.env.example
+  h_43770622f8f2a6 22-24
+gift-tiers.js
+  h_43770622f8f2a6 5
+public/admin.html
+  h_43770622f8f2a6 65-68
+public/admin.js
+  h_43770622f8f2a6 78-81
+public/overlay.js
+  h_43770622f8f2a6 213,218-222,366-367,397-401,414,425-427,552-565,567-572,574,579-623,820,824,829,878,883-884,888,921,923,926-930,939-940,942,946,952-958,961,964,967-968,976-984,986-990,994,1014,1018,1022,1025,1033-1038,1045,1052,1054,1070,1072,1290,1294,1307,1316
+scripts/movement-events-test.js
+  h_43770622f8f2a6 1-95
+scripts/overlay-movement-test.js
+  h_43770622f8f2a6 1-180
+scripts/overlay-queue-test.js
+  h_43770622f8f2a6 14-19,79,82
+server.js
+  h_43770622f8f2a6 47-49,82,138-144,153,158,164-166,168-169,176-177,191-200,231-232,279,389,393-401,414,425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5046bc5f05e017a2250941d01641ad3161a0a435",
+  "prompts": {},
+  "humans": {
+    "h_43770622f8f2a6": {
+      "author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
