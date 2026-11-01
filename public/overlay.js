@@ -210,13 +210,16 @@
   // worn only by the top six on the cushions, and a disciple changes into or out of it as the ranking moves them.
   // ?outfits=brown on the overlay address restricts the cast without touching any file.
   const VIP_OUTFIT = 'pink';
+  let chatWalkSpeed = 420;
   let OUTFITS = [];
   async function chooseOutfits() {
     const asked = new URLSearchParams(location.search).get('outfits');
     let list = asked || 'devotee,devotee-white,brown,pink';
-    if (!asked) { // the server's COLOR_OUTFITS=0 switches the coloured robes off
-      try { if ((await (await fetch('/api/config')).json()).colorOutfits === false) list = 'devotee'; } catch (_) { /* keep the default */ }
-    }
+    try {
+      const config = await (await fetch('/api/config')).json();
+      if (!asked && config.colorOutfits === false) list = 'devotee';
+      if (Number.isFinite(config.chatWalkSpeed) && config.chatWalkSpeed > 0) chatWalkSpeed = config.chatWalkSpeed;
+    } catch (_) { /* keep the defaults */ }
     OUTFITS = list.split(',').map((o) => o.trim()).filter(Boolean);
   }
   // front poses face the camera; *up poses are seen from behind, facing the Buddha
@@ -360,6 +363,8 @@
   }
 
   function removeFigure(fig) {
+    stopRoaming(fig);
+    fig.chatUntil = 0;
     const i = figures.indexOf(fig);
     if (i >= 0) figures.splice(i, 1);
     releaseSlot(fig);
@@ -389,9 +394,11 @@
       let tilt = 0, hop = 0;
       if (f.base === 'walk') {
         const set = TEX[f.outfit];
-        if (f.pose === 'walkup' && set.walkup2) f.body.texture = Math.floor(now / 190 + f.phase) % 2 ? set.walkup2 : set.walkup; // alternate feet
-        tilt = Math.sin(now / 130) * 0.07;
-        if (f.fallback) hop = -Math.abs(Math.sin(now / 130)) * 12;
+        const step = (now - f.walkStartedAt) / 170;
+        const pose = set.walkup2 && Math.floor(step) % 2 ? 'walkup2' : 'walkup';
+        if (f.pose !== pose) setPose(f, pose);
+        tilt = Math.sin(step * Math.PI) * 0.025;
+        hop = -Math.abs(Math.sin(step * Math.PI)) * (f.fallback ? 12 : 2);
       } else if (!f.busy) {
         tilt = Math.sin(now / 900 + f.phase) * 0.025;
       }
@@ -404,6 +411,7 @@
   // bottom of the screen, and rows and neighbours are spaced in proportion to the disciple's size at that depth, so the
   // crowd gets denser towards the back. Every other row is shifted half a step. A disciple keeps its place for good.
   const FLOOR_TOP = 1265, FLOOR_BOTTOM = 1890; // the crowd starts below the cushions, which belong to the top six
+  const AISLE_LEFT = 420, AISLE_RIGHT = 690;
   const SLOT_MARGIN_X = 46; // keep disciples clear of the screen edges
   const SLOT_SPACING = 110, SLOT_ROW_STEP = 70; // at full size; both shrink with depth
   const slots = [];
@@ -414,7 +422,9 @@
     const shift = row % 2 ? spacing / 2 : 0;
     for (let i = 0; i < perRow; i++) {
       const x = SLOT_MARGIN_X + spacing * (i + 0.5) + shift;
-      if (x <= W - SLOT_MARGIN_X) slots.push({ x, y, owner: null });
+      // Leave room for the whole sprite, not just its anchor, on either side of the aisle.
+      const halfWidth = SLOT_SPACING * k / 2;
+      if (x <= W - SLOT_MARGIN_X && (x + halfWidth <= AISLE_LEFT || x - halfWidth >= AISLE_RIGHT)) slots.push({ x, y, owner: null });
     }
     y += SLOT_ROW_STEP * k;
   }
@@ -539,13 +549,76 @@
     }
   }, 1000);
 
-  async function walkTo(fig, x, y, speed = 260) {
+  function cancelWalk(fig) {
+    fig.walkVersion = (fig.walkVersion || 0) + 1;
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      const tw = tweens[i];
+      if (tw.target === fig.c && ('x' in tw.props || 'y' in tw.props)) {
+        tweens.splice(i, 1);
+        tw.resolve();
+      }
+    }
+  }
+
+  async function walkTo(fig, x, y, speed = 260, maxMs = Infinity) {
+    cancelWalk(fig);
+    const version = fig.walkVersion;
     const dx = x - fig.c.x, dy = y - fig.c.y;
-    const ms = Math.max(250, (Math.hypot(dx, dy) / speed) * 1000);
-    setPose(fig, dy < 0 ? 'walkup' : 'walk');
+    if (Math.hypot(dx, dy) < 1) { setPose(fig, 'kneelup'); return; }
+    const ms = Math.min(maxMs, Math.max(600, (Math.hypot(dx, dy) / speed) * 1000));
+    // All bundled outfits have these two back-view steps. Reuse them for every direction,
+    // including sideways and the trip home, instead of falling back to a kneeling sprite.
+    fig.walkStartedAt = performance.now();
+    setPose(fig, 'walkup');
     await tween(fig.c, { x, y }, ms, ease.inOut);
+    if (fig.c.destroyed || version !== fig.walkVersion) return;
     fig.baseY = y;
     setPose(fig, 'kneelup');
+  }
+
+  function stopRoaming(fig) {
+    fig.roamVersion = (fig.roamVersion || 0) + 1;
+    if (fig.roaming) cancelWalk(fig);
+    fig.roaming = false;
+  }
+
+  // A new message extends the wandering window. Gifts take priority over wandering.
+  function roamOnChat(fig, newMessage = false) {
+    if (fig.busy) { if (newMessage) fig.pendingChat = true; return; }
+    if (newMessage) fig.chatUntil = performance.now() + 5000;
+    if (fig.roaming || fig.c.destroyed || !(fig.chatUntil > performance.now())) return;
+    if (fig.fresh) { fig.fresh = false; claimSlot(fig); }
+    const version = fig.roamVersion = (fig.roamVersion || 0) + 1;
+    fig.roaming = true;
+    cancelWalk(fig);
+    const active = () => !fig.c.destroyed && fig.roamVersion === version && !fig.busy;
+    (async () => {
+      if (fig.arriving) await fig.arriving;
+      if (!active()) return;
+      while (active() && performance.now() < fig.chatUntil - 1000) {
+        const home = claimSlot(fig);
+        const returnMs = Math.hypot(home.x - fig.c.x, home.y - fig.c.y) * 1000 / chatWalkSpeed;
+        const legMs = Math.min(1000, (fig.chatUntil - performance.now() - returnMs - 100) / 2);
+        if (legMs < 600) break; // leave enough time to walk home at the configured speed
+        const x = 100 + Math.random() * (W - 200);
+        const y = Math.min(FLOOR_BOTTOM - 40, Math.max(FLOOR_TOP + 30, (fig.slot?.y || fig.c.y) + (Math.random() - 0.5) * 200));
+        const dx = x - fig.c.x, dy = y - fig.c.y;
+        const ratio = Math.min(1, chatWalkSpeed * legMs / (1000 * Math.max(1, Math.hypot(dx, dy))));
+        await walkTo(fig, fig.c.x + dx * ratio, fig.c.y + dy * ratio, chatWalkSpeed);
+        await wait(16); // very small speeds can produce a sub-pixel trip; still yield to the renderer
+      }
+      if (!active()) return;
+      // The final destination always belongs to the two sides (or the user's VIP cushion).
+      const home = claimSlot(fig);
+      const remaining = Math.max(1, fig.chatUntil - performance.now());
+      const distance = Math.hypot(home.x - fig.c.x, home.y - fig.c.y);
+      if (distance < 1) await wait(remaining);
+      else await walkTo(fig, home.x, home.y, distance * 1000 / remaining, remaining);
+      if (active()) {
+        fig.roaming = false;
+        if (fig.chatUntil > performance.now() + 1000) roamOnChat(fig);
+      }
+    })().catch(() => { if (fig.roamVersion === version) fig.roaming = false; });
   }
 
   // A cast with the bow frames goes down to the floor in steps (hands to the forehead, half bow, hands on the floor, flat)
@@ -744,20 +817,16 @@
   const vipSlots = [382, 718, 214, 884, 65, 1024].map((x) => ({ x, y: CUSHION_Y, owner: null }));
   const VIP_SPEED = 380;
 
-  // Walk to the figure's current slot (the latest one if it changed meanwhile). A cast that cannot walk towards the
-  // camera fades out and in again when the way is down.
+  // Walk visibly to the current slot, including downward and sideways moves.
   async function moveToSlot(fig) {
     const place = fig.slot;
     if (!place || fig.c.destroyed) return;
-    if (place.y < fig.c.y - 6 || TEX[fig.outfit].walk) { await walkTo(fig, place.x, place.y, VIP_SPEED); return; }
-    await tween(fig.c, { alpha: 0 }, 220);
-    fig.c.position.set(place.x, place.y);
-    setPose(fig, 'kneelup');
-    await tween(fig.c, { alpha: 1 }, 220);
+    await walkTo(fig, place.x, place.y, VIP_SPEED);
   }
 
   function relocate(fig) {
     if (fig.busy) return; // a prayer is going on: returnHome will use the new slot
+    stopRoaming(fig);
     fig.arriving = (fig.arriving || Promise.resolve()).then(() => moveToSlot(fig)).catch(() => {}).finally(() => { fig.arriving = null; });
   }
 
@@ -806,17 +875,17 @@
   // A gift giver runs straight up to the altar and prays there while the camera holds the altar shot. Only one shot can
   // be on at a time, so gifts take their turn; if more than a few are waiting the extra ones just bow where they stand.
   const HERO_SCALE = 1.15; // drawn larger in the shot, as if closer to the camera
-  const RUN_SPEED = 1000; // design pixels per second when running to or from the altar
+  const RUN_SPEED = 420; // design pixels per second; leave enough time to see the alternating footsteps
   // ---- the gift queue ------------------------------------------------------------------------
   // Only one gift can be on stage at a time, so the others wait their turn, under four simple rules:
   //  1. someone who is already waiting is not queued twice: their gifts are added up and the better tier is kept;
   //  2. bigger gifts go first, otherwise first come, first served;
-  //  3. at most OFFER_QUEUE_MAX wait; whoever would be the last in line bows where they stand instead of being lost;
-  //  4. nobody waits more than OFFER_MAX_WAIT_MS: after that they bow where they stand as well.
+  //  3. overflow ordinary prayers move into the aisle; milestone prayers retain their altar shot;
+  //  4. ordinary prayers waiting too long also move into the aisle.
   // The banner and the spoken line start with the prayer itself, so what is said matches what is on screen.
   const OFFER_QUEUE_MAX = 5;
   const OFFER_MAX_WAIT_MS = Number(new URLSearchParams(location.search).get('queuewait')) || 25000; // ?queuewait=<ms> overrides it (for tests)
-  const TIER_PRIORITY = { huong: 1, buc: 2, tambao: 3, hoadang: 4 };
+  const TIER_PRIORITY = { huong: 1, que: 2, buc: 3, tambao: 4, hoadang: 5, phaphoi: 6 };
   const offerQueue = [];
   let onStage = null;
   let queueBadge = null;
@@ -849,11 +918,16 @@
       waiting.count += ev.count;
       if (TIER_PRIORITY[ev.tier] > TIER_PRIORITY[waiting.tier]) waiting.tier = ev.tier;
       waiting.speech = waiting.speech || ev.speech || null;
+      waiting.altar = waiting.altar || ev.altar;
     } else {
-      offerQueue.push({ user: ev.user, userId: ev.userId, tier: ev.tier, count: ev.count, speech: ev.speech || null, queuedAt: Date.now() });
+      offerQueue.push({ user: ev.user, userId: ev.userId, tier: ev.tier, count: ev.count, altar: ev.altar, speech: ev.speech || null, queuedAt: Date.now() });
     }
     offerQueue.sort((x, y) => TIER_PRIORITY[y.tier] - TIER_PRIORITY[x.tier] || x.queuedAt - y.queuedAt); // rule 2
-    while (offerQueue.length > OFFER_QUEUE_MAX) bowInPlace(offerQueue.pop()); // rule 3
+    while (offerQueue.length > OFFER_QUEUE_MAX) {
+      const extra = offerQueue.findLastIndex((entry) => !entry.altar);
+      if (extra < 0) break; // never discard an earned altar visit
+      bowInPlace(offerQueue.splice(extra, 1)[0]);
+    }
     updateQueueBadge();
     pumpOffers();
   }
@@ -862,44 +936,36 @@
     if (onStage) return;
     while (offerQueue.length) {
       const entry = offerQueue.shift();
+      // Use the current cushion assignment too: ranks may change while a prayer waits.
+      if (figures.some((f) => f.userId === entry.userId && f.vipRank)) entry.altar = true;
       updateQueueBadge();
-      if (Date.now() - entry.queuedAt > OFFER_MAX_WAIT_MS) { bowInPlace(entry); continue; } // rule 4
+      if (!entry.altar && Date.now() - entry.queuedAt > OFFER_MAX_WAIT_MS) { bowInPlace(entry); continue; }
       onStage = entry;
       showBanner(offerText(entry), 4500);
       enqueueSpeech(entry.speech);
-      try { await offer(entry.user, entry.userId, entry.tier); } catch (_) { /* the page was reset during the prayer */ }
+      try { await offer(entry.user, entry.userId, entry.tier, entry.altar); } catch (_) { /* the page was reset during the prayer */ }
       onStage = null;
     }
   }
 
   window.__queue = () => ({ onStage: onStage ? onStage.user : null, waiting: offerQueue.map((e) => ({ user: e.user, tier: e.tier, count: e.count })), hero: layers.hero.children.length }); // debug handle for tests
+  window.__movement = () => ({
+    aisle: { left: AISLE_LEFT, right: AISLE_RIGHT }, zoom: camera.zoom, chatWalkSpeed,
+    onStage: onStage && { user: onStage.user, altar: onStage.altar },
+    figures: figures.map((f) => ({ user: f.name, userId: f.userId, x: f.c.x, y: f.c.y,
+      home: f.slot && { x: f.slot.x, y: f.slot.y }, busy: f.busy, roaming: !!f.roaming, vip: f.vipRank,
+      pose: f.pose, alpha: f.c.worldAlpha, outfit: f.outfit })),
+  });
 
   async function prayInPlace(user, userId) {
-    const fig = findOrCreateFigure(user, userId);
-    if (fig.busy) return;
-    fig.busy = true;
-    showLabel(fig, 0);
-    try {
-      if (fig.fresh) {
-        fig.fresh = false;
-        const place = claimSlot(fig);
-        await walkTo(fig, place.x, place.y);
-      } else if (fig.arriving) {
-        await fig.arriving;
-      }
-      await kneel(fig, true);
-      sparks(fig.c.x, fig.c.y - fig.h * fig.c.scale.y * 0.9, 12);
-      await wait(1800);
-    } finally {
-      setPose(fig, 'kneelup');
-      fig.busy = false;
-      showLabel(fig, 2500);
-    }
+    return offer(user, userId, 'huong', false);
   }
 
-  async function offer(user, userId, tier) {
+  async function offer(user, userId, tier, altar = true) {
     const fig = findOrCreateFigure(user, userId);
     if (fig.busy) return;
+    altar = altar || !!fig.vipRank;
+    stopRoaming(fig);
     fig.busy = true;
     showLabel(fig, 0); // the name stays up for the whole prayer
     let shot = null;
@@ -907,15 +973,25 @@
       claimSlot(fig); // the place to go home to
       if (fig.fresh) fig.fresh = false; // a newcomer simply runs up from the foot of the hall
       else if (fig.arriving) await fig.arriving; // already on the way in: let them arrive first, or two walks would fight
-      layers.hero.addChild(fig.c); // above the crowd, which is about to fade out
-      shot = spotlight(ALTAR_VIEW);
-      await walkTo(fig, ALTAR_SPOT.x + (Math.random() - 0.5) * 20, ALTAR_SPOT.y, RUN_SPEED);
-      tween(fig, { heroScale: HERO_SCALE / fig.vipScale }, 350); // the same size in the shot for everyone, cushion or not
+      if (altar) {
+        layers.hero.addChild(fig.c);
+        shot = spotlight(ALTAR_VIEW);
+        await walkTo(fig, ALTAR_SPOT.x + (Math.random() - 0.5) * 20, ALTAR_SPOT.y, RUN_SPEED);
+        tween(fig, { heroScale: HERO_SCALE / fig.vipScale }, 350);
+      } else {
+        const y = Math.min(1770, Math.max(1350, fig.c.y));
+        await walkTo(fig, (AISLE_LEFT + AISLE_RIGHT) / 2, y, RUN_SPEED);
+      }
       const headY = () => fig.c.y - fig.h * fig.c.scale.y * 0.9;
-      if (tier === 'huong') {
+      if (!altar) {
+        await kneel(fig);
+        smoke(fig.c.x, headY());
+        await bow(fig, 1);
+      } else if (tier === 'huong' || tier === 'que' || tier === 'phaphoi') {
         await kneel(fig);
         for (let i = 0; i < 3; i++) { smoke(fig.c.x, headY()); await wait(250); }
         await bow(fig, 2);
+        if (tier === 'phaphoi') festival(user).catch(() => {});
       } else if (tier === 'buc') {
         await kneel(fig, true);
         sparks(fig.c.x, headY(), 16);
@@ -935,28 +1011,29 @@
       if (fig.pose === 'bowup' && hasBowFrames(fig)) await playPoses(fig, PROSTRATE_UP, 70); // get up before the camera leaves
       if (shot) endSpotlight(shot); // the camera pulls back and the crowd fades in
       tween(fig, { heroScale: 1 }, 400);
+      await returnHome(fig);
       layers.figures.addChild(fig.c);
       fig.busy = false;
-      await returnHome(fig);
       showLabel(fig, 3000);
+      resumeChat(fig);
     }
   }
 
-  // Back to the standing place. A cast with a front-facing walk walks there; a back-view-only cast would look like it
-  // walks backwards, so it fades out at the altar and fades in at its place instead.
+  // Keep the figure visible throughout the return trip, even while the crowd fades back in.
   async function returnHome(fig) {
     const home = claimSlot(fig);
-    if (TEX[fig.outfit].walk) return walkTo(fig, home.x, home.y, RUN_SPEED);
-    await tween(fig.c, { alpha: 0 }, 250);
-    fig.c.position.set(home.x, home.y);
-    setPose(fig, 'kneelup');
-    await tween(fig.c, { alpha: 1 }, 250);
-    return undefined;
+    await walkTo(fig, home.x, home.y, RUN_SPEED);
   }
 
   function flashBuddha() {
     const g = window.__buddhaGlow;
     tween(g.scale, { x: 1.5, y: 1.5 }, 500, ease.out).then(() => tween(g.scale, { x: 1, y: 1 }, 1200));
+  }
+
+  function resumeChat(fig) {
+    const pending = fig.pendingChat;
+    fig.pendingChat = false;
+    if (pending || fig.chatUntil > performance.now()) roamOnChat(fig, pending);
   }
 
   async function festival(user) {
@@ -965,13 +1042,16 @@
     releaseLanterns(20);
     const crowd = figures.filter((f) => !f.busy);
     await Promise.all(crowd.map(async (f, i) => {
+      stopRoaming(f);
       f.busy = true;
       await wait(i * 40);
       await kneel(f);
       await bow(f, 2);
       await wait(1500);
       setPose(f, 'kneelup');
+      if (f.slot) await moveToSlot(f);
       f.busy = false;
+      resumeChat(f);
     }));
   }
 
@@ -987,9 +1067,9 @@
   async function nammo(n) {
     const pool = figures.filter((f) => !f.busy).sort(() => Math.random() - 0.5).slice(0, n);
     pool.forEach((f, i) => setTimeout(() => showBubble(f, NAMMO[Math.floor(Math.random() * NAMMO.length)]), i * 250));
-    for (const f of pool) { f.busy = true; kneel(f, true); }
+    for (const f of pool) { stopRoaming(f); f.busy = true; kneel(f, true); }
     await wait(4500);
-    for (const f of pool) { setPose(f, 'kneelup'); f.busy = false; }
+    for (const f of pool) { setPose(f, 'kneelup'); f.busy = false; if (f.slot) relocate(f); resumeChat(f); }
   }
 
   function resetScene() {
@@ -1207,9 +1287,11 @@
   // ---- event wiring --------------------------------------------------------
   const NARRATION = {
     huong: 'dâng hương, cầu bình an',
+    que: 'xin xăm, cầu bình an',
     buc: 'lên bục đệm xám, quỳ lạy sát đất',
     tambao: 'lên bục đỏ Tam Bảo, tặng công đức',
     hoadang: 'thả đèn hoa đăng, nỗ thẻ quẻ Đại Cát',
+    phaphoi: 'khai Pháp Hội Vạn Phật',
   };
 
   // A newly created disciple enters from the foot of the hall and walks up to their standing place.
@@ -1222,18 +1304,16 @@
   }
 
   function onOverlayEvent(ev) {
-    const queued = (ev.type === 'gift' && ev.tier && ev.tier !== 'phaphoi') || ev.type === 'fortune'; // a queued gift or fortune speaks when its turn comes
+    const queued = (ev.type === 'gift' && ev.tier) || ev.type === 'fortune';
     if (ev.speech && !queued) enqueueSpeech(ev.speech);
     switch (ev.type) {
       case 'gift':
-        if (ev.tier === 'phaphoi') { festival(ev.user).catch(() => {}); break; }
-        if (ev.tier === 'que') { welcome(findOrCreateFigure(ev.user, ev.userId)); break; } // only a fortune: the card comes as its own event
         if (ev.tier) queueOffer(ev);
         break;
       case 'chat': {
         const fig = findOrCreateFigure(ev.user, ev.userId);
         showBubble(fig, ev.text);
-        welcome(fig);
+        roamOnChat(fig, true);
         break;
       }
       case 'join':

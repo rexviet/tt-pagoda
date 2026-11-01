@@ -75,6 +75,10 @@
   }).catch(() => { $('musicHint').textContent = ''; });
 
   $('btnJoin').onclick = () => socket.emit('sim:join', { user: user() });
+  $('btnTopSix').onclick = () => {
+    socket.emit('sim:top6');
+    $('simUser').value = 'Top 1';
+  };
   $('btnShare').onclick = () => socket.emit('sim:share', { user: user() });
   $('btnFortune').onclick = () => socket.emit('sim:fortune', { user: user() });
   $('btnBubble').onclick = () => socket.emit('sim:chat', { user: user(), text: text() });

@@ -11,6 +11,12 @@ const prefix = process.argv[3] || path.join(os.tmpdir(), 'temple-test');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
+  const s = io(`http://localhost:${port}`);
+  await new Promise((r) => s.on('connect', r));
+  s.emit('session:reset');
+  // Fill the six cushions before the overlay connects; these queue donors are ordinary viewers.
+  for (let i = 0; i < 6; i++) s.emit('sim:gift', { user: `QueueLeader${i}`, tierId: 'phaphoi' });
+  await sleep(250);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdp-'));
   const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
     '--headless=new', '--remote-debugging-port=9339', `--user-data-dir=${dir}`, '--window-size=540,960', '--no-first-run',
@@ -37,9 +43,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await send('Emulation.setDeviceMetricsOverride', { width: 540, height: 960, deviceScaleFactor: 1, mobile: false });
   await sleep(4000);
 
-  const s = io(`http://localhost:${port}`);
-  await new Promise((r) => s.on('connect', r));
-  s.emit('session:reset');
   await sleep(1500);
 
   // A goes on stage at once. R gives twice (merged), C twice (merged); then more people than the queue holds.
@@ -73,10 +76,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const wantWaiting = ['B', 'D', 'G', 'C', 'R'];
   const okStart = start.onStage === 'A' && JSON.stringify(start.waiting.map((w) => w.user)) === JSON.stringify(wantWaiting)
     && start.waiting.find((w) => w.user === 'C').count === 2 && start.waiting.find((w) => w.user === 'R').count === 2;
-  const okOrder = impatient ? JSON.stringify(seen) === JSON.stringify(['A']) : JSON.stringify(seen) === JSON.stringify(['A', ...wantWaiting]);
+  const okOrder = impatient ? JSON.stringify(seen) === JSON.stringify(['A', 'B', 'D', 'G', 'C']) : JSON.stringify(seen) === JSON.stringify(['A', ...wantWaiting]);
   const ok = okStart && okOrder && maxHero <= 1 && !end.waiting.length && !end.onStage && !problems.length;
   const good = impatient
-    ? 'RESULT: everyone who waited past the limit bowed in place; only A took the stage'
+    ? 'RESULT: expired ordinary prayers use the aisle; earned altar visits are retained'
     : 'RESULT: merged, ordered by tier, capped at five, one on stage at a time; E and F bowed in place';
   console.log(ok ? good : `RESULT: FAIL (start ok: ${okStart}, order ok: ${okOrder})`);
   s.close(); ws.close(); chrome.kill();

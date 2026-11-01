@@ -44,7 +44,9 @@ app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'ad
 app.get('/overlay', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'overlay.html')));
 // COLOR_OUTFITS=0 puts everyone in the plain grey robe: no pink for the top six, no brown in the crowd.
 const COLOR_OUTFITS = !/^(0|false|off|no)$/i.test(process.env.COLOR_OUTFITS || '1');
-app.get('/api/config', (_req, res) => res.json({ colorOutfits: COLOR_OUTFITS }));
+const configuredChatSpeed = Number(process.env.CHAT_WALK_SPEED);
+const CHAT_WALK_SPEED = Number.isFinite(configuredChatSpeed) && configuredChatSpeed > 0 ? configuredChatSpeed : 420;
+app.get('/api/config', (_req, res) => res.json({ colorOutfits: COLOR_OUTFITS, chatWalkSpeed: CHAT_WALK_SPEED }));
 app.get('/api/tiers', (_req, res) => res.json(GIFT_TIERS));
 
 // Background music: every audio file dropped into public/assets/music is played in a loop by the overlay.
@@ -77,6 +79,7 @@ app.get('/tts/:id.mp3', async (req, res) => {
 
 const scores = new Map(); // uniqueId -> { name, score, reachedAt } (reachedAt = order in which the current score was reached)
 let voiceEnabled = true;
+let lastGiftAt = 0;
 const DEFAULT_AMBIENT_CROWD = 50;
 const MAX_AMBIENT_CROWD = 350;
 const DEFAULT_MUSIC_VOLUME = 0.25;
@@ -132,6 +135,13 @@ function emitLeaderboard() {
   io.emit('leaderboard', leaderboard());
 }
 
+function resetSession() {
+  scores.clear();
+  lastGiftAt = 0;
+  emitLeaderboard();
+  io.emit('overlay', { type: 'reset' });
+}
+
 let scoreSeq = 0; // a counter rather than the clock: two gifts in the same millisecond still have an order
 function addScore(userId, name, coins) {
   const entry = scores.get(userId) || { name, score: 0, reachedAt: 0 };
@@ -140,27 +150,31 @@ function addScore(userId, name, coins) {
   entry.reachedAt = ++scoreSeq;
   scores.set(userId, entry);
   emitLeaderboard();
+  return entry.score;
 }
 
 // ---- event pipeline (shared by real TikTok events and admin simulation) ----
 
-function handleGift({ userId, name, coins, giftName, count }) {
+function handleGift({ userId, name, coins, perUnit, giftName, count, receivedAt = Date.now() }) {
   if (!(coins > 0)) {
     console.warn(`[tiktok] gift from ${name} (${giftName}) carries no coin value, so it is ignored`);
     return;
   }
   const tier = tierForCoins(coins);
-  addScore(userId, name, coins);
+  lastGiftAt = Math.max(lastGiftAt, receivedAt);
+  const totalCoins = addScore(userId, name, coins);
+  const isTopSix = leaderboard().slice(0, 6).some((row) => row.userId === userId);
   io.emit('overlay', {
-    type: 'gift', user: name, userId, coins, giftName, count,
+    type: 'gift', user: name, userId, coins, perUnit, giftName, count, totalCoins,
+    altar: isTopSix || perUnit > 1 || totalCoins % 5 === 0,
     tier: tier ? tier.id : null,
     speech: tier && tier.id !== 'que' ? speechFor(tier.id, name) : null,
   });
   if (tier && tier.id === 'que') handleFortune({ userId, name });
 }
 
-// A gift of the 'que' tier (5 coins, see gift-tiers.js) draws a fortune stick: the overlay shows the card and the voice
-// names the grade. Chatting a keyword does not: the draw has to be paid for.
+// A gift of the 'que' tier also draws a fortune stick; its prayer uses the same gift-price, score and VIP routing.
+// Chatting a keyword does not draw a fortune.
 
 function handleFortune({ userId, name }) {
   const fortune = FORTUNE_DECK[Math.floor(Math.random() * FORTUNE_DECK.length)];
@@ -172,6 +186,16 @@ function handleFortune({ userId, name }) {
 function handleChat({ userId, name, text }) {
   if (!text) return;
   io.emit('overlay', { type: 'chat', user: name, userId, text: String(text).slice(0, 120) });
+}
+
+function handleJoin({ userId, name }) {
+  let speech = null;
+  if (voiceEnabled && Date.now() - lastGiftAt >= 2000) {
+    const spokenName = speakableName(name);
+    const greetings = [`Thí chủ ${spokenName} đến rồi, hoan hỷ quá!`, `Mừng thí chủ ${spokenName} về chùa!`];
+    speech = registerParts([greetings[Math.floor(Math.random() * greetings.length)]]);
+  }
+  io.emit('overlay', { type: 'join', user: name, userId, speech });
 }
 
 // ---- TikTok connection -----------------------------------------------------
@@ -204,7 +228,8 @@ function attachTikTokHandlers(conn) {
     const giftType = info.type ?? info.giftType;
     const count = Math.max(1, Number(data.repeatCount) || 1);
     const ended = !!data.repeatEnd;
-    const gift = { ...userOf(data), perUnit: Number(info.diamondCount) || 0, giftName: info.name || info.giftName || 'Quà' };
+    const gift = { ...userOf(data), perUnit: Number(info.diamondCount) || 0, giftName: info.name || info.giftName || 'Quà', receivedAt: Date.now() };
+    if (gift.perUnit > 0) lastGiftAt = gift.receivedAt;
     console.log(`[tiktok] gift from ${gift.name}: ${gift.giftName} x${count} (${gift.perUnit} coin each, type ${giftType}, repeatEnd=${ended})`);
 
     const key = `${gift.userId}:${data.groupId ?? data.giftId}`;
@@ -251,7 +276,7 @@ function attachTikTokHandlers(conn) {
     if (data.action === 3) return; // a subscription notice, not someone walking in
     if (data.action === 2) return io.emit('overlay', { type: 'leave', userId: userOf(data).userId }); // someone left the room
     const { userId, name } = userOf(data);
-    io.emit('overlay', { type: 'join', user: name, userId });
+    handleJoin({ name, userId });
   });
 
   // The room reports its viewer count now and then; the overlay uses it to retire disciples whose owners have gone.
@@ -361,8 +386,17 @@ io.on('connection', (socket) => {
     const tier = GIFT_TIERS.find((t) => t.id === tierId);
     if (!tier) return;
     const name = String(user || 'Khách').slice(0, 30);
-    handleGift({ userId: `sim:${name}`, name, coins: tier.minCoins, giftName: tier.label, count: 1 });
+    handleGift({ userId: `sim:${name}`, name, coins: tier.minCoins, perUnit: tier.minCoins, giftName: tier.label, count: 1 });
     if (text) handleChat({ userId: `sim:${name}`, name, text });
+  });
+
+  socket.on('sim:top6', () => {
+    resetSession();
+    for (let rank = 1; rank <= 6; rank++) {
+      const name = `Top ${rank}`;
+      scores.set(`sim:${name}`, { name, score: 100, reachedAt: ++scoreSeq });
+    }
+    emitLeaderboard();
   });
 
   socket.on('sim:chat', ({ user, text }) => {
@@ -377,7 +411,7 @@ io.on('connection', (socket) => {
 
   socket.on('sim:join', ({ user }) => {
     const name = String(user || 'Khách').slice(0, 30);
-    io.emit('overlay', { type: 'join', user: name, userId: `sim:${name}` });
+    handleJoin({ name, userId: `sim:${name}` });
   });
 
   socket.on('sim:share', ({ user }) => {
@@ -388,11 +422,7 @@ io.on('connection', (socket) => {
   socket.on('crowd:nammo', (n) => io.emit('overlay', { type: 'nammo', count: Math.min(Number(n) || 8, 20) }));
   socket.on('crowd:spawn', (n) => io.emit('overlay', { type: 'crowd', count: Math.min(Number(n) || 48, 80) }));
 
-  socket.on('session:reset', () => {
-    scores.clear();
-    emitLeaderboard();
-    io.emit('overlay', { type: 'reset' });
-  });
+  socket.on('session:reset', resetSession);
 });
 
 if (require.main === module) server.listen(PORT, () => {

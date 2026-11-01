@@ -2,7 +2,7 @@
 // Highest minCoins that the amount reaches wins. Edit here to retune the milestones.
 const GIFT_TIERS = [
   { id: 'huong', minCoins: 1, label: '1 Xu — Dâng Hương', narration: 'dâng hương' },
-  { id: 'que', minCoins: 5, label: '5 Xu — Xin Xăm / Gieo Quẻ', narration: 'xin xăm' }, // only draws a fortune: no prayer on stage, no thank-you line
+  { id: 'que', minCoins: 5, label: '5 Xu — Xin Xăm / Gieo Quẻ', narration: 'xin xăm' }, // adds a fortune; server.js decides the prayer route
   { id: 'buc', minCoins: 10, label: '10 Xu — Lên Bục Đệm Xám', narration: 'lên bục lạy sát đất' },
   { id: 'tambao', minCoins: 20, label: '20 Xu — Lên Bục Đỏ Tam Bảo', narration: 'lên bục đỏ Tam Bảo' },
   { id: 'hoadang', minCoins: 50, label: '50 Xu — Thả Đèn Hoa Đăng', narration: 'thả đèn hoa đăng, xin quẻ Đại Cát' },
