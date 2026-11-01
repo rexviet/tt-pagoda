@@ -1,0 +1,25 @@
+README.md
+  s_6909455e7d0519::t_323138c260fac4 67-68
+scripts/speech-name-test.js
+  s_6909455e7d0519::t_942f8da366607f 1-29
+server.js
+  s_6909455e7d0519::t_f2f5c23b7e37e1 12,167
+speech.js
+  s_6909455e7d0519::t_c97578762d8649 64-78,81-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9b08e235beb9e31abbbe881ff3e2a303786a9f3",
+  "prompts": {},
+  "sessions": {
+    "s_6909455e7d0519": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4e9de6ba-e374-4db4-921a-34581ad06b33",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Viet Phung <vietphung@everfit.io>"
+    }
+  }
+}
